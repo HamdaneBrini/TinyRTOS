@@ -1,0 +1,72 @@
+BasedOnStyle: LLVM
+
+# ============================================================================
+# General
+# ============================================================================
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 100
+
+# ============================================================================
+# Braces
+# ============================================================================
+BreakBeforeBraces: Allman
+
+# ============================================================================
+# Indentation
+# ============================================================================
+IndentCaseLabels: true
+IndentGotoLabels: false
+IndentPPDirectives: None
+
+# ============================================================================
+# Spaces
+# ============================================================================
+SpaceBeforeParens: ControlStatements
+SpaceBeforeAssignmentOperators: true
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+SpaceInEmptyParentheses: false
+
+# Pointers
+PointerAlignment: Right
+DerivePointerAlignment: false
+
+# ============================================================================
+# Line breaks
+# ============================================================================
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Never
+
+# ============================================================================
+# Function calls and declarations
+# ============================================================================
+BinPackArguments: false
+BinPackParameters: false
+AllowAllArgumentsOnNextLine: true
+AllowAllParametersOfDeclarationOnNextLine: true
+
+# ============================================================================
+# Includes
+# ============================================================================
+SortIncludes: false
+IncludeBlocks: Preserve
+
+# ============================================================================
+# Comments
+# ============================================================================
+ReflowComments: false
+
+# ============================================================================
+# Empty lines
+# ============================================================================
+KeepEmptyLinesAtTheStartOfBlocks: true
+MaxEmptyLinesToKeep: 1
+
+# ============================================================================
+# Miscellaneous
+# ============================================================================
+FixNamespaceComments: false

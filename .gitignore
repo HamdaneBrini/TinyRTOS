@@ -1,0 +1,5 @@
+build
+backup
+.settings
+.vscode
+.venv
