@@ -3,15 +3,7 @@ cmake_minimum_required(VERSION 3.22)
 enable_language(C ASM)
 # STM32CubeMX generated symbols (macros)
 set(MX_Defines_Syms 
-	USE_FULL_LL_DRIVER 
-	HSE_VALUE=25000000 
-	HSE_STARTUP_TIMEOUT=100 
-	LSE_STARTUP_TIMEOUT=5000 
-	LSE_VALUE=32768 
-	EXTERNAL_CLOCK_VALUE=12288000 
-	HSI_VALUE=64000000 
-	LSI_VALUE=32000 
-	VDD_VALUE=3300 
+	USE_HAL_DRIVER 
 	STM32H533xx
     $<$<CONFIG:Debug>:DEBUG>
 )
@@ -20,6 +12,7 @@ set(MX_Defines_Syms
 set(MX_Include_Dirs
     ${CMAKE_SOURCE_DIR}/Application/Inc
     ${CMAKE_SOURCE_DIR}/Drivers/STM32H5xx_HAL_Driver/Inc
+    ${CMAKE_SOURCE_DIR}/Drivers/STM32H5xx_HAL_Driver/Inc/Legacy
     ${CMAKE_SOURCE_DIR}/Drivers/CMSIS/Device/ST/STM32H5xx/Include
     ${CMAKE_SOURCE_DIR}/Drivers/CMSIS/Include
 )
@@ -27,7 +20,10 @@ set(MX_Include_Dirs
 # STM32CubeMX generated application sources
 set(MX_Application_Src
     ${CMAKE_SOURCE_DIR}/Application/Src/main.c
+    ${CMAKE_SOURCE_DIR}/Application/Src/gpio.c
+    ${CMAKE_SOURCE_DIR}/Application/Src/memorymap.c
     ${CMAKE_SOURCE_DIR}/Application/Src/stm32h5xx_it.c
+    ${CMAKE_SOURCE_DIR}/Application/Src/stm32h5xx_hal_msp.c
     ${CMAKE_SOURCE_DIR}/Application/Src/sysmem.c
     ${CMAKE_SOURCE_DIR}/Application/Src/syscalls.c
     ${CMAKE_SOURCE_DIR}/startup_stm32h533xx.s
@@ -36,13 +32,23 @@ set(MX_Application_Src
 # STM32 HAL/LL Drivers
 set(STM32_Drivers_Src
     ${CMAKE_SOURCE_DIR}/Application/Src/system_stm32h5xx.c
-    ${CMAKE_SOURCE_DIR}/Drivers/STM32H5xx_HAL_Driver/Src/stm32h5xx_ll_utils.c
-    ${CMAKE_SOURCE_DIR}/Drivers/STM32H5xx_HAL_Driver/Src/stm32h5xx_ll_exti.c
-    ${CMAKE_SOURCE_DIR}/Drivers/STM32H5xx_HAL_Driver/Src/stm32h5xx_ll_gpio.c
-    ${CMAKE_SOURCE_DIR}/Drivers/STM32H5xx_HAL_Driver/Src/stm32h5xx_ll_rcc.c
-    ${CMAKE_SOURCE_DIR}/Drivers/STM32H5xx_HAL_Driver/Src/stm32h5xx_ll_pwr.c
+    ${CMAKE_SOURCE_DIR}/Drivers/STM32H5xx_HAL_Driver/Src/stm32h5xx_hal_cortex.c
+    ${CMAKE_SOURCE_DIR}/Drivers/STM32H5xx_HAL_Driver/Src/stm32h5xx_hal_rcc.c
+    ${CMAKE_SOURCE_DIR}/Drivers/STM32H5xx_HAL_Driver/Src/stm32h5xx_hal_rcc_ex.c
+    ${CMAKE_SOURCE_DIR}/Drivers/STM32H5xx_HAL_Driver/Src/stm32h5xx_hal_flash.c
+    ${CMAKE_SOURCE_DIR}/Drivers/STM32H5xx_HAL_Driver/Src/stm32h5xx_hal_flash_ex.c
+    ${CMAKE_SOURCE_DIR}/Drivers/STM32H5xx_HAL_Driver/Src/stm32h5xx_hal_gpio.c
+    ${CMAKE_SOURCE_DIR}/Drivers/STM32H5xx_HAL_Driver/Src/stm32h5xx_hal_dma.c
+    ${CMAKE_SOURCE_DIR}/Drivers/STM32H5xx_HAL_Driver/Src/stm32h5xx_hal_dma_ex.c
+    ${CMAKE_SOURCE_DIR}/Drivers/STM32H5xx_HAL_Driver/Src/stm32h5xx_hal_pwr.c
+    ${CMAKE_SOURCE_DIR}/Drivers/STM32H5xx_HAL_Driver/Src/stm32h5xx_hal_pwr_ex.c
+    ${CMAKE_SOURCE_DIR}/Drivers/STM32H5xx_HAL_Driver/Src/stm32h5xx_hal.c
+    ${CMAKE_SOURCE_DIR}/Drivers/STM32H5xx_HAL_Driver/Src/stm32h5xx_hal_exti.c
 )
-
+# Create STM32_Drivers object library
+add_library(STM32_Drivers OBJECT)
+target_sources(STM32_Drivers PRIVATE ${STM32_Drivers_Src})
+target_link_libraries(STM32_Drivers PUBLIC stm32cubemx)
 
 
 
@@ -53,18 +59,12 @@ set(MX_LINK_DIRS
 # Project static libraries
 set(MX_LINK_LIBS 
     STM32_Drivers
-    Kernel
     
 )
 # Interface library for includes and symbols
 add_library(stm32cubemx INTERFACE)
 target_include_directories(stm32cubemx INTERFACE ${MX_Include_Dirs})
 target_compile_definitions(stm32cubemx INTERFACE ${MX_Defines_Syms})
-
-# Create STM32_Drivers object library
-add_library(STM32_Drivers OBJECT)
-target_sources(STM32_Drivers PRIVATE ${STM32_Drivers_Src})
-target_link_libraries(STM32_Drivers PUBLIC stm32cubemx)
 
 # Add STM32CubeMX generated application sources to the project
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE ${MX_Application_Src})
