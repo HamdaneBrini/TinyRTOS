@@ -20,7 +20,6 @@ set(MX_Include_Dirs
 # STM32CubeMX generated application sources
 set(MX_Application_Src
     ${CMAKE_SOURCE_DIR}/Application/Src/main.c
-    ${CMAKE_SOURCE_DIR}/Application/Src/gpio.c
     ${CMAKE_SOURCE_DIR}/Application/Src/memorymap.c
     ${CMAKE_SOURCE_DIR}/Application/Src/stm32h5xx_it.c
     ${CMAKE_SOURCE_DIR}/Application/Src/stm32h5xx_hal_msp.c
@@ -44,6 +43,8 @@ set(STM32_Drivers_Src
     ${CMAKE_SOURCE_DIR}/Drivers/STM32H5xx_HAL_Driver/Src/stm32h5xx_hal_pwr_ex.c
     ${CMAKE_SOURCE_DIR}/Drivers/STM32H5xx_HAL_Driver/Src/stm32h5xx_hal.c
     ${CMAKE_SOURCE_DIR}/Drivers/STM32H5xx_HAL_Driver/Src/stm32h5xx_hal_exti.c
+    ${CMAKE_SOURCE_DIR}/Drivers/STM32H5xx_HAL_Driver/Src/stm32h5xx_hal_uart.c
+    ${CMAKE_SOURCE_DIR}/Drivers/STM32H5xx_HAL_Driver/Src/stm32h5xx_hal_uart_ex.c
 )
 # Create STM32_Drivers object library
 add_library(STM32_Drivers OBJECT)

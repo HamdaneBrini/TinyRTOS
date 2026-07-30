@@ -47,12 +47,18 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 
 # Add sources to executable
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
-    # Add user sources here
+    Drivers/GPIO/Src/gpio.c
+    Drivers/UART/Src/uart.c
+    Services/Src/Console/console.c
+    Utils/Src/string_utils.c
 )
 
 # Add include paths
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
-    # Add user defined include paths
+    ${CMAKE_SOURCE_DIR}/Drivers/GPIO/Inc
+    ${CMAKE_SOURCE_DIR}/Drivers/UART/Inc
+    ${CMAKE_SOURCE_DIR}/Services/Inc/Console
+    ${CMAKE_SOURCE_DIR}/Utils/Inc
 )
 
 # Add project symbols (macros)
