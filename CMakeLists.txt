@@ -51,6 +51,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Drivers/UART/Src/uart.c
     Services/Src/Console/console.c
     Utils/Src/string_utils.c
+    Kernel/Src/heap_allocator.c
 )
 
 # Add include paths
@@ -59,6 +60,7 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/Drivers/UART/Inc
     ${CMAKE_SOURCE_DIR}/Services/Inc/Console
     ${CMAKE_SOURCE_DIR}/Utils/Inc
+    ${CMAKE_SOURCE_DIR}/Kernel/Inc
 )
 
 # Add project symbols (macros)
