@@ -20,9 +20,9 @@
 #include "main.h"
 #include "console.h"
 #include "gpio.h"
+#include "heap_allocator.h"
 #include "memorymap.h"
 #include "uart.h"
-#include "logging.h"
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
@@ -44,7 +44,16 @@ int main(void) {
     /* Initialize all configured peripherals */
     gpio_init();
     uart_init();
+
+    /* Initialize services */
     console_init();
+    tinyprint("=======CONSOLE INITIALIZED SUCCESSFULLY======\n\n");
+
+    /* Initialize kernel */
+    tiny_heap_init();
+
+    tinyprint("=======Kernel started======\n\n");
+
     while (1) {}
 }
 
@@ -92,10 +101,6 @@ void SystemClock_Config(void) {
   */
     __HAL_FLASH_SET_PROGRAM_DELAY(FLASH_PROGRAMMING_DELAY_0);
 }
-
-/* USER CODE BEGIN 4 */
-
-/* USER CODE END 4 */
 
 /**
   * @brief  This function is executed in case of error occurrence.
