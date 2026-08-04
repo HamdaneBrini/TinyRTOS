@@ -49,18 +49,17 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Drivers/GPIO/Src/gpio.c
     Drivers/UART/Src/uart.c
-    Services/Src/Console/console.c
+    Services/Src/console.c
     Utils/Src/string_utils.c
     Kernel/Src/heap_allocator.c
-    Services/Src/Logging/logging.c
+    Services/Src/logging.c
 )
 
 # Add include paths
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/Drivers/GPIO/Inc
     ${CMAKE_SOURCE_DIR}/Drivers/UART/Inc
-    ${CMAKE_SOURCE_DIR}/Services/Inc/Console
-    ${CMAKE_SOURCE_DIR}/Services/Inc/Logging
+    ${CMAKE_SOURCE_DIR}/Services/Inc
     ${CMAKE_SOURCE_DIR}/Utils/Inc
     ${CMAKE_SOURCE_DIR}/Kernel/Inc
 )
