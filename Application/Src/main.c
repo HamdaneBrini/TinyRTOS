@@ -53,7 +53,6 @@ int main(void) {
     tiny_heap_init();
 
     tinyprint("=======Kernel started======\n\n");
-
     while (1) {}
 }
 
