@@ -19,5 +19,19 @@ void tiny_heap_init(void);
  */
 void* tiny_malloc(size_t size);
 
-#endif
+/**
+ * @brief Return an allocation to the static heap.
+ *
+ * The released block is merged with adjacent free blocks when possible.
+ *
+ * @warning This function does not validate @p ptr except for NULL pointers. The caller must pass the
+ * exact address of a live allocation returned by tiny_malloc(). Passing
+ * a foreign or interior address, or an address that has already been freed
+ * results in undefined behavior.
+ *
+ * @param ptr Pointer previously returned by tiny_malloc().
+ */
+void tiny_free(void* ptr);
+
+#endif /* HEAP_ALLOCATOR_H */
 
