@@ -1,6 +1,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <sys/types.h>
+#include "heap_allocator.h"
 
 /*
  * Linker-defined symbols. `_end` marks the first byte available to the heap,
@@ -13,17 +14,21 @@ typedef struct MemBlock {
     uint32_t is_empty;     /* Non-zero when the block can be allocated. */
     size_t size;           /* Payload size; the header is not included. */
     struct MemBlock* next; /* Next physical block in the heap. */
+    struct MemBlock* prev; /* Previous physical block in the heap. */
 } MemBlock;
 
-/* Amount of heap space occupied by a block's metadata. */
-
+/* Payloads must satisfy the strictest alignment required by a C object. */
 #define HEAP_ALIGNMENT _Alignof(max_align_t)
 
+/* The linker script aligns the beginning of the heap to an 8-byte boundary. */
 _Static_assert(HEAP_ALIGNMENT <= 8, "Linker heap alignment is insufficient");
 
-/* Keep every payload and block header suitably aligned for any C object. */
+/* Round a byte count up to the next payload-alignment boundary. */
 static inline size_t _align_up(size_t size) { return (size + HEAP_ALIGNMENT - 1U) & ~(HEAP_ALIGNMENT - 1U); }
+
+/* Metadata size including any padding required before the payload. */
 #define BLOCK_HEADER_SIZE (_align_up(sizeof(MemBlock)))
+
 /* Wrapper for the heap's linked list of blocks. */
 typedef struct Heap {
     MemBlock* head;
@@ -43,19 +48,25 @@ void tiny_heap_init(void) {
     heap.head->is_empty = 1;
     heap.head->size = (size_t)&_Min_Heap_Size - BLOCK_HEADER_SIZE;
     heap.head->next = NULL;
+    heap.head->prev = NULL;
 }
 
-/** @brief Get the address of the data part of the memory block
+/**
+ * @brief Get the first byte of a block's payload.
  *
- * @param block pointer to memory block
- * @return Pointer to the start of the data part
+ * @param block Block whose payload address is required.
+ * @return Pointer immediately after the aligned block header.
  */
 static inline void* _get_data_ptr(MemBlock* block) { return (void*)((size_t)block + BLOCK_HEADER_SIZE); }
 
-/** @brief Get the address of the end of the data part of the memory block
+/**
+ * @brief Get the address immediately following a block's payload.
  *
- * @param block pointer to memory block
- * @return Pointer to the end of the data part
+ * This is also the location at which a remainder block's header is created
+ * when the current block is split.
+ *
+ * @param block Block whose end address is required.
+ * @return Pointer one byte past the block's payload.
  */
 static inline void* _get_end_block(MemBlock* block) { return (void*)((size_t)block + BLOCK_HEADER_SIZE + block->size); }
 
@@ -88,6 +99,7 @@ static inline int _split_block(MemBlock* block, size_t size) {
     new_block->size = new_block_size;
     new_block->next = block->next;
     block->next = new_block;
+    new_block->prev = block;
     return 1;
 }
 
@@ -137,4 +149,53 @@ void* tiny_malloc(size_t size) {
     } else {
         return NULL;
     }
+}
+
+/**
+ * @brief Merge a free block with its free physical neighbors.
+ *
+ * The following block is absorbed first. The resulting block is then
+ * absorbed into the preceding block if that block is also free. Recovered
+ * header bytes become part of the merged payload area.
+ *
+ * @param block Block from which coalescing starts; NULL is accepted.
+ */
+static void _mem_coalescing(MemBlock* block) {
+    if (block == NULL)
+        return;
+    if (block->is_empty) {
+        MemBlock* next_block = block->next;
+        MemBlock* prev_block = block->prev;
+        if (next_block != NULL) {
+            if (next_block->is_empty) {
+                block->size += next_block->size + BLOCK_HEADER_SIZE;
+                block->next = next_block->next;
+            }
+        }
+        if (prev_block != NULL) {
+            if (prev_block->is_empty) {
+                prev_block->size += block->size + BLOCK_HEADER_SIZE;
+                prev_block->next = block->next;
+            }
+        }
+    }
+}
+
+/**
+ * @brief Mark an allocation as free and coalesce adjacent free blocks.
+ *
+ * The allocation header is recovered from its fixed position immediately
+ * before the user-visible payload.
+ *
+ * @warning No pointer validation is performed except for NULL pointers. The caller must provide the
+ * exact address of a live allocation returned by tiny_malloc(); any other
+ * value results in undefined behavior.
+ *
+ * @param ptr Pointer to the payload being released.
+ */
+void tiny_free(void* ptr) {
+    if(ptr==NULL)return;
+    MemBlock* current_block = (MemBlock*)((size_t)ptr - BLOCK_HEADER_SIZE);
+    current_block->is_empty = 1;
+    _mem_coalescing(current_block);
 }
