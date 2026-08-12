@@ -36,6 +36,7 @@ typedef struct Heap {
 
 /* Allocator state is private to this translation unit. */
 static Heap heap;
+static int heap_initialized = 0;
 
 /**
  * @brief Initialize the heap as one large free block.
@@ -49,6 +50,7 @@ void tiny_heap_init(void) {
     heap.head->size = (size_t)&_Min_Heap_Size - BLOCK_HEADER_SIZE;
     heap.head->next = NULL;
     heap.head->prev = NULL;
+    heap_initialized = 1;
 }
 
 /**
@@ -113,6 +115,8 @@ static inline int _split_block(MemBlock* block, size_t size) {
  * @return Pointer to the payload, or NULL when the request cannot be served.
  */
 void* tiny_malloc(size_t size) {
+    if (!heap_initialized)
+        return NULL;
     size_t al_size = _align_up(size);
     /* Reject empty requests and requests larger than the entire payload area. */
     if (al_size == 0 || al_size > (size_t)&_Min_Heap_Size - BLOCK_HEADER_SIZE)
@@ -194,7 +198,10 @@ static void _mem_coalescing(MemBlock* block) {
  * @param ptr Pointer to the payload being released.
  */
 void tiny_free(void* ptr) {
-    if(ptr==NULL)return;
+    if (!heap_initialized)
+        return NULL;
+    if (ptr == NULL)
+        return;
     MemBlock* current_block = (MemBlock*)((size_t)ptr - BLOCK_HEADER_SIZE);
     current_block->is_empty = 1;
     _mem_coalescing(current_block);
