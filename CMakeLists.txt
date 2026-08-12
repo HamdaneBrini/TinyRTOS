@@ -31,11 +31,21 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 project(${CMAKE_PROJECT_NAME})
 message("Build type: " ${CMAKE_BUILD_TYPE})
 
+option(TINYRTOS_UNIT_TEST "Build and run the unit-test firmware" OFF)
+
 # Enable CMake support for ASM and C languages
 enable_language(C ASM)
 
 # Create an executable object type
 add_executable(${CMAKE_PROJECT_NAME})
+
+# Keep clangd synchronized with the most recently built CMake preset.
+add_custom_target(update_compile_commands ALL
+    COMMAND cmake -E copy_if_different
+        ${CMAKE_BINARY_DIR}/compile_commands.json
+        ${CMAKE_SOURCE_DIR}/build/compile_commands.json
+    COMMENT "Updating clangd compilation database"
+)
 
 # Add STM32CubeMX generated sources
 add_subdirectory(cmake/stm32cubemx)
@@ -49,25 +59,33 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Drivers/GPIO/Src/gpio.c
     Drivers/UART/Src/uart.c
-    Services/Src/Console/console.c
+    Services/Src/console.c
     Utils/Src/string_utils.c
     Kernel/Src/heap_allocator.c
-    Services/Src/Logging/logging.c
+    Services/Src/logging.c
+
 )
+
+if(TINYRTOS_UNIT_TEST)
+    target_sources(${CMAKE_PROJECT_NAME} PRIVATE
+        Application/test/test_heap_allocator.c
+        Services/Src/tiny_unity.c
+    )
+endif()
 
 # Add include paths
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/Drivers/GPIO/Inc
     ${CMAKE_SOURCE_DIR}/Drivers/UART/Inc
-    ${CMAKE_SOURCE_DIR}/Services/Inc/Console
-    ${CMAKE_SOURCE_DIR}/Services/Inc/Logging
+    ${CMAKE_SOURCE_DIR}/Services/Inc
     ${CMAKE_SOURCE_DIR}/Utils/Inc
     ${CMAKE_SOURCE_DIR}/Kernel/Inc
+    $<$<BOOL:${TINYRTOS_UNIT_TEST}>:${CMAKE_SOURCE_DIR}/Application/test>
 )
 
 # Add project symbols (macros)
 target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE
-    # Add user defined symbols
+    $<$<BOOL:${TINYRTOS_UNIT_TEST}>:UNIT_TEST>
 )
 
 # Add linked libraries
