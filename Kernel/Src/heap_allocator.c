@@ -199,7 +199,7 @@ static void _mem_coalescing(MemBlock* block) {
  */
 void tiny_free(void* ptr) {
     if (!heap_initialized)
-        return NULL;
+        return;
     if (ptr == NULL)
         return;
     MemBlock* current_block = (MemBlock*)((size_t)ptr - BLOCK_HEADER_SIZE);
