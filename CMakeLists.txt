@@ -69,6 +69,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
 if(TINYRTOS_UNIT_TEST)
     target_sources(${CMAKE_PROJECT_NAME} PRIVATE
         Application/test/test_heap_allocator.c
+        Application/Src/test_utils.c
         Services/Src/tiny_unity.c
     )
 endif()
