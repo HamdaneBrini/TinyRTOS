@@ -68,6 +68,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
 
 if(TINYRTOS_UNIT_TEST)
     target_sources(${CMAKE_PROJECT_NAME} PRIVATE
+        Application/test/test_heap_allocator.c
         Application/Src/test_utils.c
         Services/Src/tiny_unity.c
     )
@@ -80,6 +81,7 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/Services/Inc
     ${CMAKE_SOURCE_DIR}/Utils/Inc
     ${CMAKE_SOURCE_DIR}/Kernel/Inc
+    $<$<BOOL:${TINYRTOS_UNIT_TEST}>:${CMAKE_SOURCE_DIR}/Application/test>
 )
 
 # Add project symbols (macros)
