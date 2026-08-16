@@ -194,6 +194,11 @@ TCB_t* get_highest_priority_ready_task(void) { return taskReadyList.head; }
  * @return TINY_OK on success, or TINY_FAIL if ready-list initialization fails.
  */
 TinyStatus_t scheduler_init(void) {
+    /* Reinitialize the fixed TCB pool so repeated initialization is deterministic. */
+    for (size_t i = 0; i < MAX_TASKS; i++) {
+        TCBT[i] = (TCB_t){0};
+    }
+    idle_task = NULL;
     if (task_ready_list_init() != TINY_OK) {
         return TINY_FAIL;
     }
