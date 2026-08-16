@@ -1,5 +1,6 @@
 #include <stddef.h>
 #include <stdint.h>
+#include <sys/cdefs.h>
 #include <sys/types.h>
 #include "heap_allocator.h"
 
@@ -35,8 +36,8 @@ typedef struct Heap {
 } Heap;
 
 /* Allocator state is private to this translation unit. */
-static Heap heap;
-static int heap_initialized = 0;
+__attribute__((section(".kernel_bss")))static Heap heap;
+__attribute__((section(".kernel_bss")))static int heap_initialized;
 
 /**
  * @brief Initialize the heap as one large free block.
