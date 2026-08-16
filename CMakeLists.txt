@@ -61,14 +61,19 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Drivers/UART/Src/uart.c
     Services/Src/console.c
     Utils/Src/string_utils.c
+    Utils/Src/io_utils.c
     Kernel/Src/heap_allocator.c
+    kernel/Src/tiny_time.c
     Services/Src/logging.c
+    Kernel/Src/scheduler.c
+    Kernel/Src/mpu.c
+    Kernel/Src/config.c
 
 )
 
 if(TINYRTOS_UNIT_TEST)
     target_sources(${CMAKE_PROJECT_NAME} PRIVATE
-        Application/test/test_heap_allocator.c
+        Application/test/test_scheduler.c
         Services/Src/tiny_unity.c
     )
 endif()

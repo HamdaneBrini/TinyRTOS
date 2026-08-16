@@ -21,7 +21,7 @@
 #include "console.h"
 #include "gpio.h"
 #include "heap_allocator.h"
-#include "memorymap.h"
+#include "mpu.h"
 #include "uart.h"
 #ifdef UNIT_TEST
 #include "test_utils.h"
@@ -58,6 +58,11 @@ void System_start(void) {
 
     /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
     HAL_Init();
+
+    /* Restrict the dedicated kernel SRAM to privileged accesses. */
+    if (tiny_mpu_config() != TINY_OK) {
+        Error_Handler();
+    }
 
     /* Configure the system clock */
     SystemClock_Config();
