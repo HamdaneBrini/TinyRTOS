@@ -22,6 +22,7 @@
 #include "gpio.h"
 #include "heap_allocator.h"
 #include "mpu.h"
+#include "timer.h"
 #include "uart.h"
 #ifdef UNIT_TEST
 #include "test_utils.h"
@@ -60,7 +61,7 @@ void System_start(void) {
     HAL_Init();
 
     /* Restrict the dedicated kernel SRAM to privileged accesses. */
-    if (tiny_mpu_config() != TINY_OK) {
+    if (MPU_kernel_config() != TINY_OK) {
         Error_Handler();
     }
 
@@ -70,6 +71,7 @@ void System_start(void) {
     /* Initialize all configured peripherals */
     gpio_init();
     uart_init();
+    timer_init();
 
     /* Initialize services */
     console_init();
