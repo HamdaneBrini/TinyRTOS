@@ -13,12 +13,128 @@ static TCB_t make_ready_task(uint32_t priority) {
     return task;
 }
 
+static TCB_t make_blocked_task(uint32_t wakeup_tick) {
+    TCB_t task = {0};
+
+    task.status = BLOCKED;
+    task.block_reason = BLOCK_DELAY;
+    task.wakeup_tick = wakeup_tick;
+    return task;
+}
+
 static void dummy_task(void* arg) { (void)arg; }
 
-void tiny_setup(void) { TINY_ASSERT_EQUAL(TINY_OK, task_ready_list_init()); }
+void tiny_setup(void) {
+    TINY_ASSERT_EQUAL(TINY_OK, task_ready_list_init());
+    TINY_ASSERT_EQUAL(TINY_OK, task_wakeup_list_init());
+}
+
+static void test_wakeup_list_init_creates_empty_list(void) {
+    const TaskList_t* list = task_wakeup_list_get();
+
+    TINY_ASSERT_NULL(list->head);
+    TINY_ASSERT_EQUAL(0U, list->lenght);
+}
+
+static void test_wakeup_list_rejects_invalid_tasks(void) {
+    TCB_t ready = make_ready_task(1U);
+    TCB_t event_wait = make_blocked_task(10U);
+    event_wait.block_reason = BLOCK_EVENT;
+
+    TINY_ASSERT_EQUAL(TINY_FAIL, _insert_task_by_wakeup(NULL));
+    TINY_ASSERT_EQUAL(TINY_FAIL, _insert_task_by_wakeup(&ready));
+    TINY_ASSERT_EQUAL(TINY_FAIL, _insert_task_by_wakeup(&event_wait));
+    TINY_ASSERT_NULL(task_wakeup_list_get()->head);
+}
+
+static void test_wakeup_list_accepts_timed_event_and_rejects_duplicate(void) {
+    TCB_t task = make_blocked_task(10U);
+    task.block_reason = BLOCK_EVENT_TIMEOUT;
+
+    TINY_ASSERT_EQUAL(TINY_OK, _insert_task_by_wakeup(&task));
+    TINY_ASSERT_EQUAL(TINY_FAIL, _insert_task_by_wakeup(&task));
+    TINY_ASSERT_EQUAL(&task, task_wakeup_list_get()->head);
+    TINY_ASSERT_EQUAL(1U, task_wakeup_list_get()->lenght);
+}
+
+static void test_wakeup_list_orders_tasks_by_earliest_tick(void) {
+    TCB_t late = make_blocked_task(30U);
+    TCB_t early = make_blocked_task(10U);
+    TCB_t middle = make_blocked_task(20U);
+    const TaskList_t* list = task_wakeup_list_get();
+
+    TINY_ASSERT_EQUAL(TINY_OK, _insert_task_by_wakeup(&late));
+    TINY_ASSERT_EQUAL(TINY_OK, _insert_task_by_wakeup(&early));
+    TINY_ASSERT_EQUAL(TINY_OK, _insert_task_by_wakeup(&middle));
+
+    TINY_ASSERT_EQUAL(&early, list->head);
+    TINY_ASSERT_EQUAL(&middle, early.wakeup_next);
+    TINY_ASSERT_EQUAL(&late, middle.wakeup_next);
+    TINY_ASSERT_EQUAL(&middle, late.wakeup_prev);
+    TINY_ASSERT_EQUAL(3U, list->lenght);
+}
+
+static void test_wakeup_list_removes_middle_task(void) {
+    TCB_t early = make_blocked_task(10U);
+    TCB_t middle = make_blocked_task(20U);
+    TCB_t late = make_blocked_task(30U);
+
+    TINY_ASSERT_EQUAL(TINY_OK, _insert_task_by_wakeup(&early));
+    TINY_ASSERT_EQUAL(TINY_OK, _insert_task_by_wakeup(&middle));
+    TINY_ASSERT_EQUAL(TINY_OK, _insert_task_by_wakeup(&late));
+    TINY_ASSERT_EQUAL(TINY_OK, _remove_task_from_wakeup_list(&middle));
+
+    TINY_ASSERT_EQUAL(&late, early.wakeup_next);
+    TINY_ASSERT_EQUAL(&early, late.wakeup_prev);
+    TINY_ASSERT_NULL(middle.wakeup_next);
+    TINY_ASSERT_NULL(middle.wakeup_prev);
+    TINY_ASSERT_EQUAL(2U, task_wakeup_list_get()->lenght);
+}
+
+static void test_wakeup_list_remove_rejects_non_timed_block_reason(void) {
+    TCB_t task = make_blocked_task(10U);
+
+    TINY_ASSERT_EQUAL(TINY_OK, _insert_task_by_wakeup(&task));
+    task.block_reason = BLOCK_EVENT;
+
+    TINY_ASSERT_EQUAL(TINY_FAIL, _remove_task_from_wakeup_list(&task));
+    TINY_ASSERT_EQUAL(&task, task_wakeup_list_get()->head);
+    TINY_ASSERT_EQUAL(1U, task_wakeup_list_get()->lenght);
+}
+
+static void test_get_earliest_wakeup_task_tracks_list_head(void) {
+    TCB_t late = make_blocked_task(30U);
+    TCB_t early = make_blocked_task(10U);
+
+    TINY_ASSERT_NULL(get_earliest_wakeup_task());
+    TINY_ASSERT_EQUAL(TINY_OK, _insert_task_by_wakeup(&late));
+    TINY_ASSERT_EQUAL(&late, get_earliest_wakeup_task());
+    TINY_ASSERT_EQUAL(TINY_OK, _insert_task_by_wakeup(&early));
+    TINY_ASSERT_EQUAL(&early, get_earliest_wakeup_task());
+}
+
+static void test_set_task_wakeup_tick_reorders_head_and_tail(void) {
+    TCB_t early = make_blocked_task(10U);
+    TCB_t middle = make_blocked_task(20U);
+    TCB_t late = make_blocked_task(30U);
+
+    TINY_ASSERT_EQUAL(TINY_OK, _insert_task_by_wakeup(&early));
+    TINY_ASSERT_EQUAL(TINY_OK, _insert_task_by_wakeup(&middle));
+    TINY_ASSERT_EQUAL(TINY_OK, _insert_task_by_wakeup(&late));
+
+    TINY_ASSERT_EQUAL(TINY_OK, set_task_wakeup_tick(&early, 40U));
+    TINY_ASSERT_EQUAL(&middle, get_earliest_wakeup_task());
+    TINY_ASSERT_EQUAL(&early, late.wakeup_next);
+    TINY_ASSERT_NULL(early.wakeup_next);
+
+    TINY_ASSERT_EQUAL(TINY_OK, set_task_wakeup_tick(&early, 5U));
+    TINY_ASSERT_EQUAL(&early, get_earliest_wakeup_task());
+    TINY_ASSERT_NULL(early.wakeup_prev);
+    TINY_ASSERT_EQUAL(&middle, early.wakeup_next);
+}
 
 static void test_ready_list_init_creates_empty_list(void) {
-    const TaskReadyList_t* list = task_ready_list_get();
+    const TaskList_t* list = task_ready_list_get();
 
     TINY_ASSERT_NULL(list->head);
     TINY_ASSERT_EQUAL(0U, list->lenght);
@@ -52,7 +168,7 @@ static void test_ready_list_orders_tasks_by_descending_priority(void) {
     TCB_t low = make_ready_task(1U);
     TCB_t high = make_ready_task(5U);
     TCB_t medium = make_ready_task(3U);
-    const TaskReadyList_t* list = task_ready_list_get();
+    const TaskList_t* list = task_ready_list_get();
 
     TINY_ASSERT_EQUAL(TINY_OK, _insert_ready_task(&low));
     TINY_ASSERT_EQUAL(TINY_OK, _insert_ready_task(&high));
@@ -202,6 +318,24 @@ static void test_set_task_suspended_removes_ready_task(void) {
     TINY_ASSERT_NULL(task_ready_list_get()->head);
 }
 
+static void test_set_task_suspended_removes_blocked_task_from_wakeup_list(void) {
+    TCB_t early = make_blocked_task(10U);
+    TCB_t task = make_blocked_task(20U);
+    TCB_t late = make_blocked_task(30U);
+
+    TINY_ASSERT_EQUAL(TINY_OK, _insert_task_by_wakeup(&early));
+    TINY_ASSERT_EQUAL(TINY_OK, _insert_task_by_wakeup(&task));
+    TINY_ASSERT_EQUAL(TINY_OK, _insert_task_by_wakeup(&late));
+
+    TINY_ASSERT_EQUAL(TINY_OK, set_task_suspended(&task));
+    TINY_ASSERT_EQUAL(SUSPENDED, task.status);
+    TINY_ASSERT_EQUAL(&late, early.wakeup_next);
+    TINY_ASSERT_EQUAL(&early, late.wakeup_prev);
+    TINY_ASSERT_NULL(task.wakeup_next);
+    TINY_ASSERT_NULL(task.wakeup_prev);
+    TINY_ASSERT_EQUAL(2U, task_wakeup_list_get()->lenght);
+}
+
 static void test_set_task_terminated_removes_ready_task(void) {
     TCB_t task = make_ready_task(1U);
 
@@ -303,6 +437,14 @@ static void test_scheduler_init_creates_only_idle_task(void) {
 void Test_start(void) {
     tiny_test_begin();
 
+    RUN_TEST(test_wakeup_list_init_creates_empty_list);
+    RUN_TEST(test_wakeup_list_rejects_invalid_tasks);
+    RUN_TEST(test_wakeup_list_accepts_timed_event_and_rejects_duplicate);
+    RUN_TEST(test_wakeup_list_orders_tasks_by_earliest_tick);
+    RUN_TEST(test_wakeup_list_removes_middle_task);
+    RUN_TEST(test_wakeup_list_remove_rejects_non_timed_block_reason);
+    RUN_TEST(test_get_earliest_wakeup_task_tracks_list_head);
+    RUN_TEST(test_set_task_wakeup_tick_reorders_head_and_tail);
     RUN_TEST(test_ready_list_init_creates_empty_list);
     RUN_TEST(test_ready_list_rejects_null_task);
     RUN_TEST(test_ready_list_rejects_task_that_is_not_ready);
@@ -321,6 +463,7 @@ void Test_start(void) {
     RUN_TEST(test_set_task_blocked_removes_ready_task);
     RUN_TEST(test_set_task_running_removes_ready_task);
     RUN_TEST(test_set_task_suspended_removes_ready_task);
+    RUN_TEST(test_set_task_suspended_removes_blocked_task_from_wakeup_list);
     RUN_TEST(test_set_task_terminated_removes_ready_task);
     RUN_TEST(test_set_task_functions_reject_null);
     RUN_TEST(test_task_create_initializes_tcb_and_adds_it_to_ready_list);
