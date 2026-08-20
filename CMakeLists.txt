@@ -58,6 +58,7 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 # Add sources to executable
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Drivers/GPIO/Src/gpio.c
+    Drivers/TIMER/Src/timer.c
     Drivers/UART/Src/uart.c
     Services/Src/console.c
     Utils/Src/string_utils.c
@@ -68,6 +69,8 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Kernel/Src/scheduler.c
     Kernel/Src/mpu.c
     Kernel/Src/config.c
+    Kernel/Src/syscall.c
+    Kernel/Src/task.c
 
 )
 
@@ -81,6 +84,7 @@ endif()
 # Add include paths
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/Drivers/GPIO/Inc
+    ${CMAKE_SOURCE_DIR}/Drivers/TIMER/Inc
     ${CMAKE_SOURCE_DIR}/Drivers/UART/Inc
     ${CMAKE_SOURCE_DIR}/Services/Inc
     ${CMAKE_SOURCE_DIR}/Utils/Inc
