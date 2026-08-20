@@ -42,7 +42,6 @@ _estack = ORIGIN(KERNEL_RAM) + LENGTH(KERNEL_RAM);
 _Min_Heap_Size         = 0x200;
 _Min_Stack_Size        = 0x400;
 _Min_kernel_Stack_Size = 0x400;
-
 /*
  * Memory map:
  *   - RAM holds application data, BSS, heap, and user stack reservations.
@@ -183,15 +182,25 @@ SECTIONS
   } >RAM
 
   /* Reserve application heap and stack space and detect RAM overflow at link time. */
-  ._user_heap_stack :
-  {
+._user_heap_stack  :
+{
     . = ALIGN(8);
     PROVIDE(end = .);
     PROVIDE(_end = .);
+
+    PROVIDE(_suser_heap = .);
     . = . + _Min_Heap_Size;
+    PROVIDE(_euser_heap = .);
+
+    /* Lowest accessible address of the stack. */
+    . = ALIGN(32);
+    PROVIDE(_suser_stack = .);
     . = . + _Min_Stack_Size;
-    . = ALIGN(8);
-  } >RAM
+    . = ALIGN(32);
+
+    /* Initial stack pointer; end-exclusive stack address. */
+    PROVIDE(_euser_stack = .);
+} > RAM
 
   /* Initialized kernel data: executes in KERNEL_RAM, loaded from FLASH. */
   .kernel_data :
