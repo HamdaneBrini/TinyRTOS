@@ -14,7 +14,16 @@
             "name": "Debug",
             "inherits": "default",
             "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug"
+                "CMAKE_BUILD_TYPE": "Debug",
+                "TINYRTOS_UNIT_TEST": "OFF"
+            }
+        },
+        {
+            "name": "Test",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "TINYRTOS_UNIT_TEST": "ON"
             }
         },
         {
@@ -43,6 +52,10 @@
         {
             "name": "Debug",
             "configurePreset": "Debug"
+        },
+        {
+            "name": "Test",
+            "configurePreset": "Test"
         },
         {
             "name": "RelWithDebInfo",

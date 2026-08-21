@@ -23,16 +23,37 @@
 #include "heap_allocator.h"
 #include "memorymap.h"
 #include "uart.h"
+#ifdef UNIT_TEST
+#include "test_utils.h"
+#endif
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
+void System_start(void);
 
 /**
   * @brief  The application entry point.
   * @retval int
   */
 int main(void) {
+    System_start();
 
+#ifdef UNIT_TEST
+    Test_start();
+#else
+    /* Initialize kernel */
+    tiny_heap_init();
+
+    tinyprint("=======Kernel started======\n\n");
+
+    while (1) {}
+#endif
+}
+
+/**
+ * @brief Initialize the MCU, configured peripherals, and application services.
+ */
+void System_start(void) {
     /* MCU Configuration--------------------------------------------------------*/
 
     /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
@@ -48,12 +69,6 @@ int main(void) {
     /* Initialize services */
     console_init();
     tinyprint("=======CONSOLE INITIALIZED SUCCESSFULLY======\n\n");
-
-    /* Initialize kernel */
-    tiny_heap_init();
-
-    tinyprint("=======Kernel started======\n\n");
-    while (1) {}
 }
 
 /**
@@ -113,18 +128,20 @@ void Error_Handler(void) {
     /* USER CODE END Error_Handler_Debug */
 }
 
-#ifdef USE_FULL_ASSERT
 /**
-  * @brief  Reports the name of the source file and the source line number
-  *         where the assert_param error has occurred.
-  * @param  file: pointer to the source file name
-  * @param  line: assert_param error line source number
-  * @retval None
-  */
-void assert_failed(uint8_t* file, uint32_t line) {
-    /* USER CODE BEGIN 6 */
-    /* User can add his own implementation to report the file name and line number,
-     ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
-    /* USER CODE END 6 */
+ * @brief Provide a default unit-test entry point.
+ *
+ * This weak, empty implementation allows a unit-test source file to provide
+ * its own strong Test_start() implementation.
+ */
+#ifdef UNIT_TEST
+__attribute__((weak)) void Test_start(void) {
+    /* Example implementation:
+     *
+     * tiny_test_begin();
+     * RUN_TEST(test_boolean_assertions);
+     * RUN_TEST(test_equality_assertions);
+     * tiny_test_end();
+     */
 }
-#endif /* USE_FULL_ASSERT */
+#endif
