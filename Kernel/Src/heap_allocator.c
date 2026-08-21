@@ -1,3 +1,8 @@
+/**
+ * @file heap_allocator.c
+ * @brief Heap-specific wrapper around the generic memory allocator.
+ */
+
 #include <stddef.h>
 #include <stdint.h>
 #include <sys/types.h>
@@ -26,10 +31,22 @@ void tiny_heap_init(void) {
     memory_allocator_init((uint32_t)&_end, (size_t)&_Min_Heap_Size, &heap);
 }
 
+/**
+ * @brief Allocate memory from the system heap.
+ *
+ * @param size Minimum number of payload bytes to allocate.
+ * @return Pointer to the allocated payload, or NULL if the request cannot be
+ *         satisfied.
+ */
 void* tiny_malloc(size_t size) {
     return memory_allocator_alloc(size, &heap);
 }
 
+/**
+ * @brief Return an allocation to the system heap.
+ *
+ * @param ptr Pointer previously returned by tiny_malloc(); NULL is accepted.
+ */
 void tiny_free(void* ptr) {
     memory_allocator_free(ptr, &heap);
 }

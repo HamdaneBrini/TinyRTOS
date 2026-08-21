@@ -1,3 +1,8 @@
+/**
+ * @file heap_allocator.h
+ * @brief Public interface for the linker-backed system heap allocator.
+ */
+
 #ifndef HEAP_ALLOCATOR_H
 #define HEAP_ALLOCATOR_H
 

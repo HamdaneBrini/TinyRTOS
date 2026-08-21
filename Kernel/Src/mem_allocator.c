@@ -1,8 +1,20 @@
+/**
+ * @file mem_allocator.c
+ * @brief Generic best-fit memory allocator implementation.
+ */
+
 #include <stddef.h>
 #include <stdint.h>
 
 #include "mem_allocator.h"
 
+/**
+ * @brief Initialize a memory region as one free block.
+ *
+ * @param base_address Address of the first byte in the memory region.
+ * @param mem_size Total size of the memory region in bytes.
+ * @param allocator_CB Allocator state to initialize.
+ */
 void memory_allocator_init(uint32_t base_address, size_t mem_size, Allocator_CB_t* allocator_CB) {
     allocator_CB->head = (MemBlock*)base_address;
     allocator_CB->head->is_empty = 1;
