@@ -60,10 +60,11 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Drivers/GPIO/Src/gpio.c
     Drivers/TIMER/Src/timer.c
     Drivers/UART/Src/uart.c
-    Services/Src/console.c
+    Services/Src/Console/console.c
     Utils/Src/string_utils.c
     Utils/Src/io_utils.c
     Kernel/Src/heap_allocator.c
+    Kernel/Src/mem_allocator.c
     kernel/Src/tiny_time.c
     Services/Src/logging.c
     Kernel/Src/scheduler.c
@@ -87,6 +88,8 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/Drivers/TIMER/Inc
     ${CMAKE_SOURCE_DIR}/Drivers/UART/Inc
     ${CMAKE_SOURCE_DIR}/Services/Inc
+    ${CMAKE_SOURCE_DIR}/Services/Inc/Console
+    ${CMAKE_SOURCE_DIR}/Services/Inc/Logging
     ${CMAKE_SOURCE_DIR}/Utils/Inc
     ${CMAKE_SOURCE_DIR}/Kernel/Inc
     $<$<BOOL:${TINYRTOS_UNIT_TEST}>:${CMAKE_SOURCE_DIR}/Application/test>
