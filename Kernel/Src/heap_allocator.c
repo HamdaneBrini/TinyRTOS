@@ -5,6 +5,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <sys/cdefs.h>
 #include <sys/types.h>
 #include "heap_allocator.h"
 #include "mem_allocator.h"
