@@ -40,7 +40,7 @@ _estack = ORIGIN(KERNEL_RAM) + LENGTH(KERNEL_RAM);
 
 /* Minimum space reserved for the application heap and stacks. */
 _Min_Heap_Size         = 0x200;
-_Min_Stack_Size        = 0x400;
+_Min_Stack_Size        = 0x8000;
 _Min_kernel_Stack_Size = 0x400;
 /*
  * Memory map:
@@ -55,6 +55,8 @@ MEMORY
   FLASH      (rx)  : ORIGIN = 0x08000000, LENGTH = 512K
 }
 
+_sFlash = ORIGIN(FLASH);
+_eFlash =ORIGIN(FLASH) + LENGTH(FLASH);
 /* Full kernel SRAM bounds used by the MPU configuration. */
 _skernel_ram = ORIGIN(KERNEL_RAM);
 _ekernel_ram = ORIGIN(KERNEL_RAM) + LENGTH(KERNEL_RAM);
@@ -153,7 +155,7 @@ SECTIONS
   /* Initialized application data: executes in RAM, loaded from FLASH. */
   .data :
   {
-    . = ALIGN(4);
+      . = ALIGN(32);
     _sdata = .;        /* create a global symbol at data start */
     *(.data)           /* .data sections */
     *(.data*)          /* .data* sections */
@@ -176,7 +178,7 @@ SECTIONS
     *(.bss*)
     *(COMMON)
 
-    . = ALIGN(4);
+     . = ALIGN(32);
     _ebss = .;         /* define a global symbol at bss end */
     __bss_end__ = _ebss;
   } >RAM
@@ -184,12 +186,13 @@ SECTIONS
   /* Reserve application heap and stack space and detect RAM overflow at link time. */
 ._user_heap_stack  :
 {
-    . = ALIGN(8);
+    . = ALIGN(32);
     PROVIDE(end = .);
     PROVIDE(_end = .);
 
     PROVIDE(_suser_heap = .);
     . = . + _Min_Heap_Size;
+    . = ALIGN(32);
     PROVIDE(_euser_heap = .);
 
     /* Lowest accessible address of the stack. */
@@ -205,13 +208,14 @@ SECTIONS
   /* Initialized kernel data: executes in KERNEL_RAM, loaded from FLASH. */
   .kernel_data :
   {
-    . = ALIGN(4);
+    . = ALIGN(32);
     PROVIDE(_skernel_data = .);
     PROVIDE(_skernel_ram = .);
     *(.kernel_data)
     *(.kernel_data*)
+     . = ALIGN(4);
     _ekernel_data = .;
-    . = ALIGN(4);
+   
 
   } >KERNEL_RAM AT>FLASH
 
@@ -226,15 +230,16 @@ SECTIONS
     _ekernel_bss = .;
   } >KERNEL_RAM
 
-  /* Reserve the kernel stack at the end of the kernel data region. */
-  ._kernel_stack :
-  {
-    . = ALIGN(8);
-    PROVIDE(_kernel_end = .);
-    . = . + _Min_kernel_Stack_Size;
-    . = ALIGN(8);
-    PROVIDE(_ekernel_ram = .);
-  } >KERNEL_RAM
+  /* Reserve the kernel stack at the end of the kernel bss region. */
+  _kernel_stack_bottom = ORIGIN(KERNEL_RAM) + LENGTH(KERNEL_RAM) - _Min_kernel_Stack_Size;
+
+  PROVIDE(_skernel_stack = _kernel_stack_bottom);
+  PROVIDE(_ekernel_stack = _estack);
+
+  ASSERT(
+      _ekernel_bss <= _kernel_stack_bottom,
+      "Kernel RAM overflow: kernel data overlaps MSP stack"
+  );
 
   /* Kernel data load address and byte count consumed by startup code. */
   _sikernel_data = LOADADDR(.kernel_data);
