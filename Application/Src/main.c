@@ -18,10 +18,16 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include <stdint.h>
+#include <sys/_types.h>
+#include "config.h"
 #include "console.h"
 #include "gpio.h"
 #include "heap_allocator.h"
+#include "kernel_task.h"
 #include "mpu.h"
+#include "scheduler.h"
+#include "task.h"
 #include "timer.h"
 #include "uart.h"
 #ifdef UNIT_TEST
@@ -31,6 +37,18 @@
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 void System_start(void);
+
+uint32_t shared_data = 4;
+uint32_t shared_bss;
+void task1(void) {
+    int a=0;
+    for (int i=0; i<10 ; i++){
+      a++;
+    } 
+    shared_bss=55;
+    shared_data=47;
+    while(1);
+}
 
 /**
   * @brief  The application entry point.
@@ -42,11 +60,12 @@ int main(void) {
 #ifdef UNIT_TEST
     Test_start();
 #else
-    /* Initialize kernel */
-    tiny_heap_init();
-
-    tinyprint("=======Kernel started======\n\n");
-
+    /* Start user tasks */
+    TaskHandle_t task_handle=1;
+  tiny_task_create(&task_handle, (TaskFunc_t)task1, NULL, 1, 512);
+  if (tiny_scheduler_start()!=TINY_OK){
+    Error_Handler();
+  };
     while (1) {}
 #endif
 }
@@ -64,7 +83,7 @@ void System_start(void) {
     if (MPU_kernel_config() != TINY_OK) {
         Error_Handler();
     }
-
+  
     /* Configure the system clock */
     SystemClock_Config();
 
@@ -76,6 +95,13 @@ void System_start(void) {
     /* Initialize services */
     console_init();
     tinyprint("=======CONSOLE INITIALIZED SUCCESSFULLY======\n\n");
+    tiny_heap_init();
+    tinyprint("=======HEAP INITIALIZED SUCCESSFULLY======\n\n");
+
+    if (scheduler_init() != TINY_OK) {
+        Error_Handler();
+    };
+    tinyprint("=======SCHEDULER INITIALIZED SUCCESSFULLY======\n\n");
 }
 
 /**
