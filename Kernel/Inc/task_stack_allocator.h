@@ -8,12 +8,18 @@
 
 #include <stddef.h>
 
+/** @brief Alignment applied to task stack sizes and addresses. */
+#define TASK_STACK_ALIGNMENT 32U
+
+uint32_t get_stack_base_address(void) ;
+uint32_t get_stack_end_address(void) ;
+size_t get_Min_Stack_Size(void) ;
 /**
  * @brief Initialize the task stack allocator.
  *
  * This function must be called before the first call to tiny_stack_malloc().
  */
-void tiny_stack_init(void);
+void stack_allocator_init(void);
 
 /**
  * @brief Allocate memory for a task stack.
@@ -22,13 +28,13 @@ void tiny_stack_init(void);
  * @return Pointer to the allocated memory, or NULL if the request cannot be
  *         satisfied.
  */
-void* tiny_stack_malloc(size_t size);
+void* stack_malloc(size_t size);
 
 /**
  * @brief Return task stack memory to the allocator.
  *
  * @param ptr Pointer previously returned by tiny_stack_malloc().
  */
-void tiny_stack_free(void* ptr);
+void stack_free(void* ptr);
 
 #endif /* TASK_STACK_ALLOCATOR_H */

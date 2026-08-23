@@ -8,6 +8,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include "alignment.h"
 
 /** @brief Metadata stored immediately before every user-visible allocation. */
 typedef struct MemBlock {
@@ -22,21 +23,9 @@ typedef struct Allocator_CB {
     MemBlock* head;  /**< First physical block in the memory region. */
     size_t mem_size; /**< Total size of the managed memory region in bytes. */
     int initialized; /**< Non-zero after successful initialization. */
+    size_t block_header_size;
+    size_t mem_aligment;
 } Allocator_CB_t;
-
-/** @brief Alignment applied to every allocation payload. */
-#define MEM_ALIGNMENT _Alignof(max_align_t)
-
-/**
- * @brief Round a size up to the next payload-alignment boundary.
- *
- * @param size Size in bytes to align.
- * @return Aligned size in bytes.
- */
-static inline size_t _align_up(size_t size) { return (size + MEM_ALIGNMENT - 1U) & ~(MEM_ALIGNMENT - 1U); }
-
-/** @brief Block metadata size including payload-alignment padding. */
-#define BLOCK_HEADER_SIZE (_align_up(sizeof(MemBlock)))
 
 /**
  * @brief Initialize an allocator over a caller-provided memory region.
@@ -48,7 +37,7 @@ static inline size_t _align_up(size_t size) { return (size + MEM_ALIGNMENT - 1U)
  * @param mem_size Total size of the memory region in bytes.
  * @param allocator_CB Allocator state to initialize.
  */
-void memory_allocator_init(uint32_t base_address, size_t mem_size, Allocator_CB_t* allocator_CB);
+void memory_allocator_init(uint32_t base_address, size_t mem_size, size_t mem_aligment ,Allocator_CB_t* allocator_CB);
 
 /**
  * @brief Allocate memory from a generic allocator.

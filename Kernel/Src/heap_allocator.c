@@ -29,7 +29,7 @@ static Allocator_CB_t heap;
  * block consumes that whole region, less the metadata stored at its start.
  */
 void tiny_heap_init(void) {
-    memory_allocator_init((uint32_t)&_end, (size_t)&_Min_Heap_Size, &heap);
+    memory_allocator_init((uint32_t)&_end, (size_t)&_Min_Heap_Size,MEM_ALIGNMENT, &heap);
 }
 
 /**

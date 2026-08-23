@@ -8,6 +8,8 @@
 
 #include <stddef.h>
 
+/** @brief Alignment applied to every allocation payload. */
+#define MEM_ALIGNMENT _Alignof(max_align_t)
 /**
  * @brief Initialize the static heap allocator.
  *

@@ -60,12 +60,13 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Drivers/GPIO/Src/gpio.c
     Drivers/TIMER/Src/timer.c
     Drivers/UART/Src/uart.c
-    Services/Src/Console/console.c
+    Services/Src/console.c
     Utils/Src/string_utils.c
     Utils/Src/io_utils.c
     Kernel/Src/heap_allocator.c
     Kernel/Src/mem_allocator.c
-    kernel/Src/tiny_time.c
+    Kernel/Src/task_stack_allocator.c
+
     Services/Src/logging.c
     Kernel/Src/scheduler.c
     Kernel/Src/mpu.c

@@ -15,10 +15,12 @@
  * @param mem_size Total size of the memory region in bytes.
  * @param allocator_CB Allocator state to initialize.
  */
-void memory_allocator_init(uint32_t base_address, size_t mem_size, Allocator_CB_t* allocator_CB) {
+void memory_allocator_init(uint32_t base_address, size_t mem_size, size_t mem_aligment, Allocator_CB_t* allocator_CB) {
     allocator_CB->head = (MemBlock*)base_address;
     allocator_CB->head->is_empty = 1;
-    allocator_CB->head->size = mem_size - BLOCK_HEADER_SIZE;
+    allocator_CB->mem_aligment = mem_aligment;
+    allocator_CB->block_header_size = align_up(sizeof(MemBlock), mem_aligment);
+    allocator_CB->head->size = mem_size - allocator_CB->block_header_size;
     allocator_CB->head->next = NULL;
     allocator_CB->head->prev = NULL;
     allocator_CB->mem_size = mem_size;
@@ -31,7 +33,9 @@ void memory_allocator_init(uint32_t base_address, size_t mem_size, Allocator_CB_
  * @param block Block whose payload address is required.
  * @return Pointer immediately after the aligned block header.
  */
-static inline void* _get_data_ptr(MemBlock* block) { return (void*)((size_t)block + BLOCK_HEADER_SIZE); }
+static inline void* _get_data_ptr(MemBlock* block, Allocator_CB_t* allocator_CB) {
+    return (void*)((size_t)block + allocator_CB->block_header_size);
+}
 
 /**
  * @brief Get the address immediately following a block's payload.
@@ -42,7 +46,9 @@ static inline void* _get_data_ptr(MemBlock* block) { return (void*)((size_t)bloc
  * @param block Block whose end address is required.
  * @return Pointer one byte past the block's payload.
  */
-static inline void* _get_end_block(MemBlock* block) { return (void*)((size_t)block + BLOCK_HEADER_SIZE + block->size); }
+static inline void* _get_end_block(MemBlock* block, Allocator_CB_t* allocator_CB) {
+    return (void*)((size_t)block + allocator_CB->block_header_size + block->size);
+}
 
 /**
  * @brief Split a block into an allocated-size prefix and a free remainder.
@@ -55,20 +61,20 @@ static inline void* _get_end_block(MemBlock* block) { return (void*)((size_t)blo
  * @param size Payload size of the first block.
  * @return 1 on success, otherwise 0.
  */
-static inline int _split_block(MemBlock* block, size_t size) {
+static inline int _split_block(MemBlock* block, size_t size, Allocator_CB_t* allocator_CB) {
     if (block == NULL)
         return 0;
     if (size == 0)
         return 1;
     /* Equality would leave a header followed by a zero-byte free block. Since
      * all sizes are aligned, any positive remainder is also suitably aligned. */
-    if (size + BLOCK_HEADER_SIZE >= block->size)
+    if (size + allocator_CB->block_header_size >= block->size)
         return 0;
 
     /* The second block owns all bytes left after its new header. */
-    size_t new_block_size = block->size - size - BLOCK_HEADER_SIZE;
+    size_t new_block_size = block->size - size - allocator_CB->block_header_size;
     block->size = size;
-    MemBlock* new_block = (MemBlock*)_get_end_block(block);
+    MemBlock* new_block = (MemBlock*)_get_end_block(block, allocator_CB);
     new_block->is_empty = 1;
     new_block->size = new_block_size;
     new_block->next = block->next;
@@ -90,21 +96,21 @@ static inline int _split_block(MemBlock* block, size_t size) {
 void* memory_allocator_alloc(size_t size, Allocator_CB_t* allocator_CB) {
     if (!allocator_CB->initialized)
         return NULL;
-    size_t al_size = _align_up(size);
+    size_t al_size = align_up(size, allocator_CB->mem_aligment);
     /* Reject empty requests and requests larger than the entire payload area. */
-    if (al_size == 0 || al_size > allocator_CB->mem_size - BLOCK_HEADER_SIZE)
+    if (al_size == 0 || al_size > allocator_CB->mem_size - allocator_CB->block_header_size)
         return NULL;
 
     MemBlock* current_block = allocator_CB->head;
     /* No block is a candidate until a sufficiently large free block is found. */
     MemBlock* best_block = NULL;
-    size_t best_size = allocator_CB->mem_size - BLOCK_HEADER_SIZE;
+    size_t best_size = allocator_CB->mem_size - allocator_CB->block_header_size;
     while (current_block != NULL) {
         if (current_block->is_empty) {
             if (current_block->size == al_size) {
                 /* An exact match needs neither further searching nor splitting. */
                 current_block->is_empty = 0;
-                return _get_data_ptr(current_block);
+                return _get_data_ptr(current_block, allocator_CB);
             } else if (current_block->size > al_size) {
                 /* Retain the smallest usable block seen so far. */
                 if (current_block->size <= best_size) {
@@ -121,8 +127,8 @@ void* memory_allocator_alloc(size_t size, Allocator_CB_t* allocator_CB) {
         /* `_split_block` leaves the block intact if no header fits after it. */
         best_block->is_empty = 0;
         best_block->size = best_size;
-        _split_block(best_block, al_size);
-        return _get_data_ptr(best_block);
+        _split_block(best_block, al_size, allocator_CB);
+        return _get_data_ptr(best_block, allocator_CB);
     } else {
         return NULL;
     }
@@ -137,7 +143,7 @@ void* memory_allocator_alloc(size_t size, Allocator_CB_t* allocator_CB) {
  *
  * @param block Block from which coalescing starts; NULL is accepted.
  */
-static void _mem_coalescing(MemBlock* block) {
+static void _mem_coalescing(MemBlock* block, Allocator_CB_t* allocator_CB) {
     if (block == NULL)
         return;
     if (block->is_empty) {
@@ -145,7 +151,7 @@ static void _mem_coalescing(MemBlock* block) {
         MemBlock* prev_block = block->prev;
         if (next_block != NULL) {
             if (next_block->is_empty) {
-                block->size += next_block->size + BLOCK_HEADER_SIZE;
+                block->size += next_block->size + allocator_CB->block_header_size;
                 block->next = next_block->next;
                 if (block->next != NULL)
                     block->next->prev = block;
@@ -153,7 +159,7 @@ static void _mem_coalescing(MemBlock* block) {
         }
         if (prev_block != NULL) {
             if (prev_block->is_empty) {
-                prev_block->size += block->size + BLOCK_HEADER_SIZE;
+                prev_block->size += block->size + allocator_CB->block_header_size;
                 prev_block->next = block->next;
                 if (prev_block->next != NULL)
                     prev_block->next->prev = prev_block;
@@ -180,7 +186,7 @@ void memory_allocator_free(void* ptr, Allocator_CB_t* allocator_CB) {
         return;
     if (ptr == NULL)
         return;
-    MemBlock* current_block = (MemBlock*)((size_t)ptr - BLOCK_HEADER_SIZE);
+    MemBlock* current_block = (MemBlock*)((size_t)ptr - allocator_CB->block_header_size);
     current_block->is_empty = 1;
-    _mem_coalescing(current_block);
+    _mem_coalescing(current_block, allocator_CB);
 }
