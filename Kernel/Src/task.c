@@ -1,24 +1,37 @@
 #include <stddef.h>
 #include <stdint.h>
+#include "alignment.h"
+#include "cmsis_gcc.h"
 #include "config.h"
+#include "kernel_task.h"
+#include "mpu.h"
 #include "stm32h5xx.h"
+#include "syscall.h"
 #include "task.h"
+#include "task_stack_allocator.h"
 
 
-#define MAX_TASKS       16U
-#define IDLE_STACK_SIZE 256U
+#define MAX_TASKS            16U
+#define IDLE_TASK_STACK_SIZE 256U
+#define IDLE_TASK_PRIORITY   0U
 
 __attribute__((section(".kernel_bss"))) static TaskList_t taskReadyList;
 __attribute__((section(".kernel_bss"))) static TaskList_t taskWakeupList;
-__attribute__((section(".kernel_bss"))) static TCB_t TCBT[MAX_TASKS];
 __attribute__((section(".kernel_bss"))) static TCB_t* idle_task;
-__attribute__((section(".kernel_bss"), aligned(8))) static uint8_t idle_task_stack[IDLE_STACK_SIZE];
+__attribute__((section(".kernel_bss"))) static TCB_t TCBT[MAX_TASKS];
 
 /* Internal ready-list operations are public only to support structural tests. */
 TinyStatus_t _insert_ready_task(TCB_t* task);
 TinyStatus_t _insert_task_by_wakeup(TCB_t* task);
 TinyStatus_t _remove_ready_task(TCB_t* task);
 TinyStatus_t _remove_task_from_wakeup_list(TCB_t* task);
+static TinyStatus_t _task_stack_init(TCB_t* task);
+
+static inline TCB_t* task_lookup(TaskHandle_t task_handle) {
+    if (task_handle >= MAX_TASKS)
+        return NULL;
+    return &TCBT[task_handle];
+}
 
 static int compare_priority(const TCB_t* a, const TCB_t* b) { return a->priority > b->priority; }
 
@@ -42,14 +55,52 @@ static TCB_t** task_prev_link(const TaskList_t* taskList, TCB_t* task) {
     return taskList->links == TASK_READY_LINKS ? &task->prev : &task->wakeup_prev;
 }
 
+
+__attribute__((noreturn)) static void idle_func(void* arg) {
+    (void)arg;
+    while (1) {
+        __WFI();
+    }
+}
+
+__attribute__((noreturn)) static void task_exit(void) {
+    __asm__ volatile("svc %0" : : "I"(SVC_TASK_EXIT) : "memory");
+    while (1)
+        ;
+}
+
+static TinyStatus_t _task_stack_init(TCB_t* task) {
+
+    if(task==NULL)return TINY_FAIL;
+    uint32_t* sp = (uint32_t*)(task->stack_region.base + (uint32_t)task->stack_region.size);
+    *(--sp) = INITIAL_XPSR;              /* xpsr*/
+    *(--sp) = (uint32_t)task->main_func; /* pc */
+    *(--sp) = (uint32_t)task_exit;       /* lr */
+    *(--sp) = 0U;                        /* R12 */
+    *(--sp) = 0U;                        /* R3 */
+    *(--sp) = 0U;                        /* R2 */
+    *(--sp) = 0U;                        /* R1 */
+    *(--sp) = (uint32_t)task->arg;
+
+    /* Software-saved context: R4–R11. */
+    for (int i = 0; i < 8; i++) {
+        *(--sp) = 0U;
+    }
+    task->sp = sp;
+    return TINY_OK;
+}
+
 TinyStatus_t task_system_init(void) {
     for (size_t i = 0; i < MAX_TASKS; i++) {
         TCBT[i] = (TCB_t){0};
     }
-    idle_task = NULL;
-    if (task_ready_list_init() != TINY_OK || task_wakeup_list_init() != TINY_OK) {
+    stack_allocator_init();
+    if (task_ready_list_init() != TINY_OK || task_wakeup_list_init() != TINY_OK)
         return TINY_FAIL;
-    }
+    TaskHandle_t handle =0;
+    if (task_create(&handle, (TaskFunc_t)idle_func, NULL, IDLE_TASK_PRIORITY, IDLE_TASK_STACK_SIZE) != TINY_OK)
+        return TINY_FAIL;
+    idle_task = task_lookup(handle);
     return TINY_OK;
 }
 
@@ -60,31 +111,38 @@ TinyStatus_t task_system_init(void) {
  * @param main_func Task entry point.
  * @param arg Argument supplied to the task entry point.
  * @param priority Scheduling priority; larger values have higher priority.
- * @param stack_base Base address of the task stack.
  * @param stack_size Stack capacity in bytes.
  * @return TINY_OK on success, or TINY_FAIL if allocation or insertion fails.
  */
-TinyStatus_t tiny_task_create(TCB_t** task_handle, TaskFunc_t main_func, void* arg, uint32_t priority,
-                              size_t stack_size) {
+TinyStatus_t task_create(TaskHandle_t* task_handle, TaskFunc_t main_func, void* arg, uint32_t priority,
+                         size_t stack_size) {
 
     /* Reuse the first unallocated entry in the fixed-size TCB table. */
     for (size_t i = 0; i < MAX_TASKS; i++) {
         if (TCBT[i].status == UNUSED) {
+            size_t aligned_stack_size = align_up(stack_size, TASK_STACK_ALIGNMENT);
+            void* stack_base = stack_malloc(aligned_stack_size);
+            if (stack_base == NULL) {
+                return TINY_FAIL;
+            }
             TCB_t* new_task = &TCBT[i];
             new_task->status = READY;
             new_task->block_reason = BLOCK_NONE;
             new_task->main_func = main_func;
             new_task->arg = arg;
             new_task->priority = priority;
-            new_task->stack_base = stack_base;
-            new_task->stack_size = stack_size;
+            new_task->stack_region.base = (uint32_t)stack_base;
+            new_task->stack_region.size = aligned_stack_size;
+            new_task->stack_region.access_permission = MEMORY_READ_WRITE;
             new_task->next = NULL;
             new_task->prev = NULL;
             new_task->wakeup_next = NULL;
             new_task->wakeup_prev = NULL;
             new_task->wakeup_tick = 0;
+            /* Initialize the task's stack*/
+            _task_stack_init(new_task);
             if (task_handle != NULL) {
-                *task_handle = new_task;
+                *task_handle = i;
             }
             if (_insert_ready_task(new_task) != TINY_OK) {
                 return TINY_FAIL;
@@ -255,6 +313,8 @@ TCB_t* get_highest_priority_ready_task(void) { return taskReadyList.head; }
 
 /** Return the task whose wake-up deadline comes first. */
 TCB_t* get_earliest_wakeup_task(void) { return taskWakeupList.head; }
+
+TCB_t* get_next_wakeup_task(TCB_t* task) { return task->wakeup_next; }
 
 size_t task_ready_count(void) { return taskReadyList.lenght; }
 
@@ -429,4 +489,25 @@ TinyStatus_t set_task_wakeup_tick(TCB_t* task, uint32_t abs_tick) {
         return TINY_FAIL;
     }
     return TINY_OK;
+}
+
+TinyStatus_t task_stack_mpu_config(TCB_t* task) {
+    uint32_t base_address = task->stack_region.base;
+    uint32_t limit_address = base_address + (uint32_t)task->stack_region.size - 1U;
+
+    return MPU_config(base_address, limit_address, task->stack_region.access_permission, 0, MEMORY_REGION_NUMEBER_1);
+}
+
+TinyStatus_t tiny_task_create(TaskHandle_t* task_handle, TaskFunc_t main_func, void* arg, uint32_t priority,
+                              size_t stack_size) {
+                                
+    TaskCreateArgs_t args = {task_handle, main_func, arg, priority, stack_size};
+    register uintptr_t r0 __asm("r0") = (uintptr_t)&args;
+    __asm__ volatile(
+                    "svc %1" 
+                    :"+r"(r0) 
+                    :"I"(SVC_TASK_CREATE)
+                    :"memory");
+
+    return (TinyStatus_t)r0;
 }

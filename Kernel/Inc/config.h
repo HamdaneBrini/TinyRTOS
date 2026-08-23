@@ -7,4 +7,6 @@ typedef enum {
 
 } TinyStatus_t;
 
+#define INITIAL_XPSR 0x01000000UL
+
 #endif

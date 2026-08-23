@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 
 /* Includes ------------------------------------------------------------------*/
+#include <stdint.h>
 #include "stm32h5xx_it.h"
 #include <sys/cdefs.h>
 #include "cmsis_gcc.h"
@@ -124,16 +125,19 @@ void DebugMon_Handler(void) {
   */
 __attribute__((naked)) void PendSV_Handler(void) {
     __asm__ volatile(
-      "mrs r0 psp \n"
-      "stmdb r0! {r4-r11} \n"
-      "ldr r1 ,=current_task \n"
-      "str r0 [r1] \n"
-      "bl schedule_next_task \n"
-      "ldr r0,=current_task \n"
-      "ldr r0 [r0]\n"
-      "ldmdb r0! {r4-r11} \n"
-      "msr r0 psp\n"
-    )
+      "mrs r0, psp             \n"
+      "stmdb r0!, {r4-r11}     \n"
+      "ldr r1, =current_task   \n"
+      "ldr r2, [r1]            \n"
+      "str r0, [r2]            \n"
+      "bl schedule_next_task   \n"
+      "ldr r1, =current_task   \n"
+      "ldr r2, [r1]            \n"
+      "ldr r0, [r2]            \n"
+      "ldmia r0!, {r4-r11}     \n"
+      "msr psp, r0             \n"
+      "bx lr                   \n"
+    );
 }
 
 /**
