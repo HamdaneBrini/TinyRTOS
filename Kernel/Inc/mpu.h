@@ -6,6 +6,7 @@
 #include "config.h"
 #include "stm32h5xx_hal.h"
 
+#define MPU_REGION_ALIGNMENT 32U
 typedef enum {
     MEMORY_NO_ACCESS,
     MEMORY_READ_ONLY,
@@ -26,6 +27,7 @@ typedef enum {
 
 /* Protect the linker-defined kernel RAM region from unprivileged access. */
 TinyStatus_t MPU_kernel_config(void);
+TinyStatus_t MPU_flash_config(void);
 TinyStatus_t MPU_config(uint32_t base_address, uint32_t limit_address, MemoryAccess_t access, int is_executable,
                         MemoryRegionNumber_t region_number);
 

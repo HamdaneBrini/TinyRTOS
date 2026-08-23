@@ -238,8 +238,7 @@ SECTIONS
 
   ASSERT(
       _ekernel_bss <= _kernel_stack_bottom,
-      "Kernel RAM overflow: kernel data overlaps MSP stack"
-  );
+      "Kernel RAM overflow: kernel data overlaps MSP stack")
 
   /* Kernel data load address and byte count consumed by startup code. */
   _sikernel_data = LOADADDR(.kernel_data);
