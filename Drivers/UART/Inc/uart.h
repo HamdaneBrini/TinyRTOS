@@ -19,7 +19,7 @@ void uart_init(void);
  * @param pData Pointer to the data to transmit.
  * @param Size Number of bytes to transmit.
  */
-void uart_write(const uint8_t *pData, uint16_t Size);
+void uart_write(const uint8_t* pData, uint16_t Size);
 
 /**
  * @brief Receive bytes through USART2.
@@ -28,6 +28,6 @@ void uart_write(const uint8_t *pData, uint16_t Size);
  * @param Size Number of bytes to receive.
  * @param Timeout Maximum receive duration in milliseconds.
  */
-void uart_read(uint8_t *pData, uint16_t Size, uint32_t Timeout);
+void uart_read(uint8_t* pData, uint16_t Size, uint32_t Timeout);
 
 #endif /* UART_H */

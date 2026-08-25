@@ -1,8 +1,15 @@
+/**
+ * @file heap_allocator.h
+ * @brief Public interface for the linker-backed system heap allocator.
+ */
+
 #ifndef HEAP_ALLOCATOR_H
 #define HEAP_ALLOCATOR_H
 
 #include <stddef.h>
 
+/** @brief Alignment applied to every allocation payload. */
+#define MEM_ALIGNMENT _Alignof(max_align_t)
 /**
  * @brief Initialize the static heap allocator.
  *
@@ -34,4 +41,3 @@ void* tiny_malloc(size_t size);
 void tiny_free(void* ptr);
 
 #endif /* HEAP_ALLOCATOR_H */
-

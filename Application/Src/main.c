@@ -18,10 +18,17 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include <stdint.h>
+#include <sys/_types.h>
+#include "config.h"
 #include "console.h"
 #include "gpio.h"
 #include "heap_allocator.h"
-#include "memorymap.h"
+#include "kernel_task.h"
+#include "mpu.h"
+#include "scheduler.h"
+#include "task.h"
+#include "timer.h"
 #include "uart.h"
 #ifdef UNIT_TEST
 #include "test_utils.h"
@@ -30,6 +37,42 @@
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 void System_start(void);
+
+uint32_t shared_data = 4;
+uint32_t shared_bss;
+
+/**
+ * @brief Exercise task execution and shared initialized data access.
+ *
+ * @param arg Unused task argument.
+ */
+void task1(void* arg) {
+    (void)arg;
+    int a = 0;
+    for (int i = 0; i < 10; i++) {
+        a++;
+    }
+    shared_bss = 55;
+    shared_data = 47;
+    while(1);
+}
+
+/**
+ * @brief Exercise task execution and shared zero-initialized data access.
+ *
+ * @param arg Unused task argument.
+ */
+void task2(void* arg) {
+    (void)arg;
+    shared_bss = 6;
+    while(1);
+}
+
+void task3(void* arg) {
+    (void)arg;
+    shared_bss = 6;
+    while(1);
+}
 
 /**
   * @brief  The application entry point.
@@ -41,12 +84,26 @@ int main(void) {
 #ifdef UNIT_TEST
     Test_start();
 #else
-    /* Initialize kernel */
-    tiny_heap_init();
+    /* Start user tasks */
+    TaskHandle_t task_handler1 = 1;
+    TaskHandle_t task_handler2 = 2;
+    TaskHandle_t task_handler3 = 3;
+    if (tiny_task_create(&task_handler1, task1, NULL, 1, 512) != TINY_OK) {
+        Error_Handler();
+    }
+    if (tiny_task_create(&task_handler2, task2, NULL, 1, 512) != TINY_OK) {
+        Error_Handler();
+    }
 
-    tinyprint("=======Kernel started======\n\n");
+    if (tiny_task_create(&task_handler3, task3, NULL, 1, 512) != TINY_OK) {
+        Error_Handler();
+    }
 
-    while (1) {}
+    if (tiny_scheduler_start() != TINY_OK) {
+        Error_Handler();
+    };
+    while (1)
+        ;
 #endif
 }
 
@@ -61,14 +118,28 @@ void System_start(void) {
 
     /* Configure the system clock */
     SystemClock_Config();
+    SCB->SHCSR |= SCB_SHCSR_BUSFAULTENA_Msk;
+    __DSB();
+    __ISB();
 
     /* Initialize all configured peripherals */
     gpio_init();
     uart_init();
+    timer_init();
 
     /* Initialize services */
     console_init();
     tinyprint("=======CONSOLE INITIALIZED SUCCESSFULLY======\n\n");
+    tiny_heap_init();
+    tinyprint("=======HEAP INITIALIZED SUCCESSFULLY======\n\n");
+    /* Restrict the dedicated kernel SRAM to privileged accesses. */
+    if (MPU_kernel_config() != TINY_OK) {
+        Error_Handler();
+    }
+    if (scheduler_init() != TINY_OK) {
+        Error_Handler();
+    };
+    tinyprint("=======SCHEDULER INITIALIZED SUCCESSFULLY======\n\n");
 }
 
 /**

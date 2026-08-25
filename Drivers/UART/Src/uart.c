@@ -36,7 +36,6 @@ void uart_init(void) {
         while (1)
             ;
     }
-
 }
 
 /**
@@ -47,10 +46,7 @@ void uart_init(void) {
  * @param pData Pointer to the data to transmit.
  * @param Size Number of bytes to transmit.
  */
-void uart_write(const uint8_t* pData, uint16_t Size) {
-
-    HAL_UART_Transmit(&huart2, pData, Size, HAL_MAX_DELAY);
-}
+void uart_write(const uint8_t* pData, uint16_t Size) { HAL_UART_Transmit(&huart2, pData, Size, HAL_MAX_DELAY); }
 
 /**
  * @brief Receive a sequence of bytes through USART2.
@@ -59,7 +55,4 @@ void uart_write(const uint8_t* pData, uint16_t Size) {
  * @param Size Number of bytes to receive.
  * @param Timeout Maximum receive duration in milliseconds.
  */
-void uart_read(uint8_t* pData, uint16_t Size, uint32_t Timeout) {
-
-    HAL_UART_Receive(&huart2, pData, Size, Timeout);
-}
+void uart_read(uint8_t* pData, uint16_t Size, uint32_t Timeout) { HAL_UART_Receive(&huart2, pData, Size, Timeout); }

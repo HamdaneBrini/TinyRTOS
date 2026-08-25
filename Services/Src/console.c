@@ -79,6 +79,7 @@ void tiny_vprint(const char* format, va_list args) {
         format++;
     }
 }
+
 /**
  * @brief Write a minimally formatted string to the console.
  *

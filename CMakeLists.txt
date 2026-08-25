@@ -58,17 +58,31 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 # Add sources to executable
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Drivers/GPIO/Src/gpio.c
+    Drivers/TIMER/Src/timer.c
     Drivers/UART/Src/uart.c
     Services/Src/console.c
     Utils/Src/string_utils.c
+    Utils/Src/io_utils.c
     Kernel/Src/heap_allocator.c
+    Kernel/Src/mem_allocator.c
+    Kernel/Src/task_stack_allocator.c
+
     Services/Src/logging.c
+    Kernel/Src/scheduler.c
+    Kernel/Src/mpu.c
+    Kernel/Src/config.c
+    Kernel/Src/syscall.c
+    Kernel/Src/task.c
+    Kernel/Port/CortexM33/port.c
+    Kernel/Port/CortexM33/port_context.c
+    Kernel/Port/CortexM33/port_exception.c
+    Kernel/Port/CortexM33/port_mpu.c
 
 )
 
 if(TINYRTOS_UNIT_TEST)
     target_sources(${CMAKE_PROJECT_NAME} PRIVATE
-        Application/test/test_heap_allocator.c
+        Application/test/test_scheduler.c
         Services/Src/tiny_unity.c
     )
 endif()
@@ -76,8 +90,11 @@ endif()
 # Add include paths
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/Drivers/GPIO/Inc
+    ${CMAKE_SOURCE_DIR}/Drivers/TIMER/Inc
     ${CMAKE_SOURCE_DIR}/Drivers/UART/Inc
     ${CMAKE_SOURCE_DIR}/Services/Inc
+    ${CMAKE_SOURCE_DIR}/Services/Inc/Console
+    ${CMAKE_SOURCE_DIR}/Services/Inc/Logging
     ${CMAKE_SOURCE_DIR}/Utils/Inc
     ${CMAKE_SOURCE_DIR}/Kernel/Inc
     $<$<BOOL:${TINYRTOS_UNIT_TEST}>:${CMAKE_SOURCE_DIR}/Application/test>

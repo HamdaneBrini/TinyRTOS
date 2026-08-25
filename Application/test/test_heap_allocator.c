@@ -1,3 +1,8 @@
+/**
+ * @file test_heap_allocator.c
+ * @brief Unit tests for the linker-backed heap allocator.
+ */
+
 #include <stddef.h>
 #include <stdint.h>
 
