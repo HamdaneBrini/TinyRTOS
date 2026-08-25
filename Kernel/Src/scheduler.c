@@ -98,13 +98,8 @@ void schedule_next_task(void) {
                 task_stack_mpu_config(current_task);
 
             } else if (candidate_task->priority == current_task->priority) {
-
-                set_task_ready(current_task);
-                /**
-            TODO:
-            insert task at the end of the priority part (round robin)
-            
-            */
+                /* Round robin if equal priorities*/
+                task_move_to_priority_tail(current_task);
                 set_task_running(candidate_task);
                 current_task = candidate_task;
                 task_stack_mpu_config(current_task);
@@ -125,7 +120,7 @@ void schedule_next_task(void) {
         }
         case TERMINATED: {
 
-            //set_task_running(candidate_task);
+            set_task_running(candidate_task);
             current_task = candidate_task;
             task_stack_mpu_config(current_task);
             break;

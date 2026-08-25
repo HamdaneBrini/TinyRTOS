@@ -378,6 +378,28 @@ TinyStatus_t set_task_ready(TCB_t* task) {
 }
 
 /**
+ * @brief Move a running or ready task behind tasks of the same priority.
+ *
+ * @param task Task to place at the end of its priority group.
+ * @return TINY_OK on success, or TINY_FAIL if the task cannot be queued.
+ */
+TinyStatus_t task_move_to_priority_tail(TCB_t* task) {
+    if (task == NULL || (task->status != RUNNING && task->status != READY)) {
+        return TINY_FAIL;
+    }
+
+    if (task->status == RUNNING) {
+        return set_task_ready(task);
+    }
+
+    if (_remove_ready_task(task) != TINY_OK) {
+        return TINY_FAIL;
+    }
+
+    return _insert_ready_task(task);
+}
+
+/**
  * @brief Transition a task to BLOCKED.
  *
  * @param task Task to block.

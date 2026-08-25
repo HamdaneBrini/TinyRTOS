@@ -87,6 +87,7 @@ TinyStatus_t set_task_suspended(TCB_t* task);
 TinyStatus_t set_task_terminated(TCB_t* task);
 TinyStatus_t set_task_priority(TCB_t* task, uint32_t priority);
 TinyStatus_t set_task_wakeup_tick(TCB_t* task, uint32_t abs_tick);
+TinyStatus_t task_move_to_priority_tail(TCB_t* task);
 TinyStatus_t task_stack_mpu_config(TCB_t* task);
 
 #ifdef UNIT_TEST

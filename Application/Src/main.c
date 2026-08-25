@@ -54,6 +54,7 @@ void task1(void* arg) {
     }
     shared_bss = 55;
     shared_data = 47;
+    while(1);
 }
 
 /**
@@ -64,6 +65,13 @@ void task1(void* arg) {
 void task2(void* arg) {
     (void)arg;
     shared_bss = 6;
+    while(1);
+}
+
+void task3(void* arg) {
+    (void)arg;
+    shared_bss = 6;
+    while(1);
 }
 
 /**
@@ -79,10 +87,15 @@ int main(void) {
     /* Start user tasks */
     TaskHandle_t task_handler1 = 1;
     TaskHandle_t task_handler2 = 2;
+    TaskHandle_t task_handler3 = 3;
     if (tiny_task_create(&task_handler1, task1, NULL, 1, 512) != TINY_OK) {
         Error_Handler();
     }
     if (tiny_task_create(&task_handler2, task2, NULL, 1, 512) != TINY_OK) {
+        Error_Handler();
+    }
+
+    if (tiny_task_create(&task_handler3, task3, NULL, 1, 512) != TINY_OK) {
         Error_Handler();
     }
 
