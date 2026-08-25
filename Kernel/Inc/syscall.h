@@ -1,3 +1,8 @@
+/**
+ * @file syscall.h
+ * @brief System-call numbers and SVC dispatch interface.
+ */
+
 #ifndef TINY_SYSCALL_H
 #define TINY_SYSCALL_H
 
@@ -5,6 +10,7 @@
 #include <stdint.h>
 
 #include "kernel_task.h"
+#include "port_exception.h"
 #include "task.h"
 
 /*
@@ -28,6 +34,7 @@ typedef enum {
     SVC_TASK_SUSPEND,
     SVC_TASK_RESUME,
     SVC_TASK_SET_PRIORITY,
+    SVC_CONSOLE_OUT
 } SVC_Number_t;
 
 /**
@@ -35,10 +42,5 @@ typedef enum {
  *
  * @param frame Hardware-saved caller context.
  */
-void SVC_Handler_Main(ExceptionFrame_t* frame);
-
-#endif
-/**
- * @file syscall.h
- * @brief System-call numbers and SVC dispatch interface.
- */
+void SVC_Handler_Main(PortExceptionFrame_t* frame);
+#endif /* TINY_SYSCALL_H */

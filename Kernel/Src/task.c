@@ -1,3 +1,8 @@
+/**
+ * @file task.c
+ * @brief Task creation, state transitions, and ordered task-list management.
+ */
+
 #include <stddef.h>
 #include <stdint.h>
 #include "alignment.h"
@@ -5,6 +10,8 @@
 #include "config.h"
 #include "kernel_task.h"
 #include "mpu.h"
+#include "port.h"
+#include "port_exception.h"
 #include "stm32h5xx.h"
 #include "syscall.h"
 #include "task.h"
@@ -73,20 +80,7 @@ static TinyStatus_t _task_stack_init(TCB_t* task) {
     if (task == NULL)
         return TINY_FAIL;
     uint32_t* sp = (uint32_t*)(task->stack_region.base + (uint32_t)task->stack_region.size);
-    *(--sp) = INITIAL_XPSR;              /* xpsr*/
-    *(--sp) = (uint32_t)task->main_func; /* pc */
-    *(--sp) = (uint32_t)task_exit;       /* lr */
-    *(--sp) = 0U;                        /* R12 */
-    *(--sp) = 0U;                        /* R3 */
-    *(--sp) = 0U;                        /* R2 */
-    *(--sp) = 0U;                        /* R1 */
-    *(--sp) = (uint32_t)task->arg;
-
-    /* Software-saved context: R4–R11. */
-    for (int i = 0; i < 8; i++) {
-        *(--sp) = 0U;
-    }
-    task->sp = sp;
+    task->sp = port_task_exception_frame_init(sp, (uint32_t)task->main_func, (uint32_t)task->arg, (uint32_t)task_exit);
     return TINY_OK;
 }
 

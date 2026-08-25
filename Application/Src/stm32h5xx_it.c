@@ -78,15 +78,6 @@ void MemManage_Handler(void) {
   * @brief This function handles Pre-fetch fault, memory access fault.
   */
 void BusFault_Handler(void) {
-    volatile void* tim_instance = htim2.Instance;
-    /* USER CODE BEGIN BusFault_IRQn 0 */
-    uint32_t cfsr = SCB->CFSR;
-    uint32_t hfsr = SCB->HFSR;
-    uint32_t bfar = SCB->BFAR;
-    uint32_t psp = __get_PSP();
-    uint32_t msp = __get_MSP();
-    volatile uint32_t lr;
-    __asm__ volatile("mov %0, lr" : "=r"(lr));
     /* USER CODE END BusFault_IRQn 0 */
     while (1) {
         /* USER CODE BEGIN W1_BusFault_IRQn 0 */
@@ -107,16 +98,7 @@ void UsageFault_Handler(void) {
     }
 }
 
-/**
-  * @brief This function handles System service call via SWI instruction.
-  */
-__attribute__((naked)) void SVC_Handler(void) {
-    __asm__ volatile("tst   lr, #4      \n"
-                     "ite   eq          \n"
-                     "mrseq r0, msp     \n"
-                     "mrsne r0, psp     \n"
-                     "b     SVC_Handler_Main \n");
-}
+
 
 /**
   * @brief This function handles Debug monitor.
@@ -130,27 +112,7 @@ void DebugMon_Handler(void) {
     /* USER CODE END DebugMonitor_IRQn 1 */
 }
 
-/**
-  * @brief This function handles Pendable request for system service.
-  */
-__attribute__((naked)) void PendSV_Handler(void) {
-    __asm__ volatile("cpsid i                 \n"
-                     "mrs r0, psp             \n"
-                     "stmdb r0!, {r4-r11}     \n"
-                     "ldr r1, =current_task   \n"
-                     "ldr r2, [r1]            \n"
-                     "str r0, [r2]            \n"
-                     "push {r3,lr}            \n"
-                     "bl schedule_next_task   \n"
-                     "pop {r3,lr}             \n"
-                     "ldr r1, =current_task   \n"
-                     "ldr r2, [r1]            \n"
-                     "ldr r0, [r2]            \n"
-                     "ldmia r0!, {r4-r11}     \n"
-                     "msr psp, r0             \n"
-                     "cpsie i                       \n"
-                     "bx lr                         \n");
-}
+
 
 /**
   * @brief This function handles System tick timer.
