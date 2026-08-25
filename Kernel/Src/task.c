@@ -26,6 +26,7 @@ TinyStatus_t _insert_task_by_wakeup(TCB_t* task);
 TinyStatus_t _remove_ready_task(TCB_t* task);
 TinyStatus_t _remove_task_from_wakeup_list(TCB_t* task);
 static TinyStatus_t _task_stack_init(TCB_t* task);
+static void task_exit(void);
 
 static inline TCB_t* task_lookup(TaskHandle_t task_handle) {
     if (task_handle >= MAX_TASKS)
@@ -63,11 +64,7 @@ __attribute__((noreturn)) static void idle_func(void* arg) {
     }
 }
 
-__attribute__((noreturn)) static void task_exit(void) {
-    __asm__ volatile("svc %0" : : "I"(SVC_TASK_EXIT) : "memory");
-    while (1)
-        ;
-}
+
 
 static TinyStatus_t _task_stack_init(TCB_t* task) {
 
@@ -510,4 +507,9 @@ TinyStatus_t tiny_task_create(TaskHandle_t* task_handle, TaskFunc_t main_func, v
                     :"memory");
 
     return (TinyStatus_t)r0;
+}
+
+__attribute__((noreturn)) static void task_exit(void) {
+    __asm__ volatile("svc %0" : : "I"(SVC_TASK_EXIT) : "memory");
+    while(1);
 }

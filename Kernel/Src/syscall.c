@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <sys/_types.h>
 #include "config.h"
+#include "kernel_task.h"
 #include "scheduler.h"
 #include "syscall.h"
 #include "task.h"
@@ -44,6 +45,13 @@ void SVC_Handler_Main(ExceptionFrame_t* frame) {
             }
             frame->r0=task_create(args->task_handle, args->main_func, args->arg, args->priority, args->stack_size);
 
+            break;
+        }
+        case SVC_TASK_EXIT:{
+            set_task_terminated(current_task);
+            SCB->ICSR = SCB_ICSR_PENDSVSET_Msk;
+            __DSB();
+            __ISB();
             break;
         }
         default: /* unknown SVC */ break;
