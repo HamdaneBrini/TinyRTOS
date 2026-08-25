@@ -41,4 +41,3 @@ void* tiny_malloc(size_t size);
 void tiny_free(void* ptr);
 
 #endif /* HEAP_ALLOCATOR_H */
-

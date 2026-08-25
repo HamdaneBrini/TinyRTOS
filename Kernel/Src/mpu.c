@@ -17,13 +17,21 @@ extern uint8_t _euser_heap;
 
 TinyStatus_t MPU_kernel_config(void) {
     /* Configure Kernel ram */
-    if (MPU_config((uint32_t)&_skernel_ram, (uint32_t)&_ekernel_ram - 1U, MEMORY_READ_WRITE_PV, 0, MEMORY_REGION_NUMEBER_0)!=TINY_OK) return TINY_FAIL;
+    if (MPU_config((uint32_t)&_skernel_ram, (uint32_t)&_ekernel_ram - 1U, MEMORY_READ_WRITE_PV, 0,
+                   MEMORY_REGION_NUMEBER_0)
+        != TINY_OK)
+        return TINY_FAIL;
     /* Configure flash */
-    if(MPU_config((uint32_t)&_sFlash, (uint32_t)&_eFlash - 1U, MEMORY_READ_ONLY, 1, MEMORY_REGION_NUMEBER_2)!=TINY_OK) return TINY_FAIL;
+    if (MPU_config((uint32_t)&_sFlash, (uint32_t)&_eFlash - 1U, MEMORY_READ_ONLY, 1, MEMORY_REGION_NUMEBER_2)
+        != TINY_OK)
+        return TINY_FAIL;
     /* Configure user data and bss*/
-    if(MPU_config((uint32_t)&_sdata, (uint32_t)&_ebss - 1U, MEMORY_READ_WRITE, 0, MEMORY_REGION_NUMEBER_3)!=TINY_OK) return TINY_FAIL;
-        /* Configure user heap */
-    if(MPU_config((uint32_t)&_suser_heap, (uint32_t)&_euser_heap - 1U, MEMORY_READ_WRITE, 0, MEMORY_REGION_NUMEBER_4)!=TINY_OK) return TINY_FAIL;
+    if (MPU_config((uint32_t)&_sdata, (uint32_t)&_ebss - 1U, MEMORY_READ_WRITE, 0, MEMORY_REGION_NUMEBER_3) != TINY_OK)
+        return TINY_FAIL;
+    /* Configure user heap */
+    if (MPU_config((uint32_t)&_suser_heap, (uint32_t)&_euser_heap - 1U, MEMORY_READ_WRITE, 0, MEMORY_REGION_NUMEBER_4)
+        != TINY_OK)
+        return TINY_FAIL;
     return TINY_OK;
 }
 

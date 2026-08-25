@@ -11,3 +11,7 @@
 #define _IO volatile
 
 #endif /* IO_UTILS_H */
+/**
+ * @file io_utils.h
+ * @brief Access qualifiers for memory-mapped hardware registers.
+ */

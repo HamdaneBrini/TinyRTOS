@@ -24,6 +24,7 @@
 #include "main.h"
 #include "scheduler.h"
 #include "stm32h5xx_it.h"
+
 extern TIM_HandleTypeDef htim2;
 
 /* Private includes ----------------------------------------------------------*/
@@ -63,7 +64,7 @@ void MemManage_Handler(void) {
     /* USER CODE BEGIN MemoryManagement_IRQn 0 */
     uint32_t fault_pc = ((uint32_t*)__get_PSP())[6];
 
-    MPU->RNR = 2; // Flash region
+    MPU->RNR = 2; /* Flash region. */
     uint32_t flash_rbar = MPU->RBAR;
     uint32_t flash_rlar = MPU->RLAR;
     /* USER CODE END MemoryManagement_IRQn 0 */
@@ -136,7 +137,7 @@ __attribute__((naked)) void PendSV_Handler(void) {
     __asm__ volatile("cpsid i                 \n"
                      "mrs r0, psp             \n"
                      "stmdb r0!, {r4-r11}     \n"
-                      "ldr r1, =current_task   \n"
+                     "ldr r1, =current_task   \n"
                      "ldr r2, [r1]            \n"
                      "str r0, [r2]            \n"
                      "push {r3,lr}            \n"
@@ -148,8 +149,7 @@ __attribute__((naked)) void PendSV_Handler(void) {
                      "ldmia r0!, {r4-r11}     \n"
                      "msr psp, r0             \n"
                      "cpsie i                       \n"
-                     "bx lr                         \n"
-                                          );
+                     "bx lr                         \n");
 }
 
 /**

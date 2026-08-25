@@ -3,7 +3,7 @@
  * @brief Public interface for lightweight console output.
  */
 
-#ifndef CONSOLE_H 
+#ifndef CONSOLE_H
 #define CONSOLE_H
 
 #include <stdarg.h>

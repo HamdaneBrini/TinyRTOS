@@ -35,9 +35,10 @@ typedef struct Allocator_CB {
  *
  * @param base_address Address of the first byte in the memory region.
  * @param mem_size Total size of the memory region in bytes.
+ * @param mem_aligment Required payload alignment in bytes.
  * @param allocator_CB Allocator state to initialize.
  */
-void memory_allocator_init(uint32_t base_address, size_t mem_size, size_t mem_aligment ,Allocator_CB_t* allocator_CB);
+void memory_allocator_init(uint32_t base_address, size_t mem_size, size_t mem_aligment, Allocator_CB_t* allocator_CB);
 
 /**
  * @brief Allocate memory from a generic allocator.

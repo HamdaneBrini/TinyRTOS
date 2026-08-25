@@ -41,6 +41,11 @@ void System_start(void);
 uint32_t shared_data = 4;
 uint32_t shared_bss;
 
+/**
+ * @brief Exercise task execution and shared initialized data access.
+ *
+ * @param arg Unused task argument.
+ */
 void task1(void* arg) {
     (void)arg;
     int a = 0;
@@ -49,13 +54,16 @@ void task1(void* arg) {
     }
     shared_bss = 55;
     shared_data = 47;
-
 }
 
+/**
+ * @brief Exercise task execution and shared zero-initialized data access.
+ *
+ * @param arg Unused task argument.
+ */
 void task2(void* arg) {
     (void)arg;
     shared_bss = 6;
-
 }
 
 /**

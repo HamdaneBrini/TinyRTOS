@@ -19,6 +19,7 @@ typedef struct {
     size_t size;
     MemoryAccess_t access_permission;
 } TaskMemoryRegion_t;
+
 typedef struct {
     uint32_t r0;
     uint32_t r1;

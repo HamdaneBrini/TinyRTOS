@@ -7,13 +7,20 @@
 #define TASK_STACK_ALLOCATOR_H
 
 #include <stddef.h>
+#include <stdint.h>
 
 /** @brief Alignment applied to task stack sizes and addresses. */
 #define TASK_STACK_ALIGNMENT 32U
 
-uint32_t get_stack_base_address(void) ;
-uint32_t get_stack_end_address(void) ;
-size_t get_Min_Stack_Size(void) ;
+/** @return First address of the linker-reserved task-stack region. */
+uint32_t get_stack_base_address(void);
+
+/** @return End-exclusive address of the task-stack region. */
+uint32_t get_stack_end_address(void);
+
+/** @return Size in bytes of the linker-reserved task-stack region. */
+size_t get_Min_Stack_Size(void);
+
 /**
  * @brief Initialize the task stack allocator.
  *

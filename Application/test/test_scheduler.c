@@ -1,9 +1,9 @@
 #include <stddef.h>
 
+#include "console.h"
 #include "scheduler.h"
 #include "tiny_time.h"
 #include "tiny_unity.h"
-#include "console.h"
 
 static TCB_t make_ready_task(uint32_t priority) {
     TCB_t task = {0};
@@ -413,9 +413,7 @@ static void test_set_task_priority_updates_non_ready_task(void) {
     TINY_ASSERT_NULL(task_ready_list_get()->head);
 }
 
-static void test_set_task_priority_rejects_null(void) {
-    TINY_ASSERT_EQUAL(TINY_FAIL, set_task_priority(NULL, 1U));
-}
+static void test_set_task_priority_rejects_null(void) { TINY_ASSERT_EQUAL(TINY_FAIL, set_task_priority(NULL, 1U)); }
 
 static void test_set_task_wakeup_tick_updates_task(void) {
     TCB_t task = {0};

@@ -14,7 +14,7 @@
 #include "syscall.h"
 #include "timer.h"
 
-/** Task max execution time slice in microseconds*/
+/** Task maximum execution time slice in microseconds. */
 #define TASK_TIME_SLICE 1000 /* 1ms */
 
 /* Scheduler state is placed in privileged kernel RAM by the linker script. */
@@ -23,6 +23,9 @@ __attribute__((section(".kernel_bss"))) uint32_t timeslice_end;
 
 static int deadline_before(uint32_t a, uint32_t b) { return (int32_t)(a - b) < 0; }
 
+/**
+ * @brief Restore the first task context and enter unprivileged Thread mode.
+ */
 __attribute__((naked, noreturn)) void start_first_task(void) {
     __asm__ volatile("cpsid i                       \n"
 
@@ -61,6 +64,11 @@ TinyStatus_t scheduler_init(void) {
     return task_system_init();
 }
 
+/**
+ * @brief Select the first ready task and start the scheduling timer.
+ *
+ * @return TINY_OK on success, or TINY_FAIL if no task is ready.
+ */
 TinyStatus_t scheduler_start(void) {
 
     TCB_t* first_task = get_highest_priority_ready_task();
@@ -74,6 +82,7 @@ TinyStatus_t scheduler_start(void) {
     return TINY_OK;
 }
 
+/** @brief Select and configure the next task eligible to run. */
 void schedule_next_task(void) {
     __disable_irq();
     TCB_t* candidate_task = get_highest_priority_ready_task();
@@ -89,7 +98,7 @@ void schedule_next_task(void) {
                 task_stack_mpu_config(current_task);
 
             } else if (candidate_task->priority == current_task->priority) {
-                
+
                 set_task_ready(current_task);
                 /**
             TODO:
@@ -99,7 +108,6 @@ void schedule_next_task(void) {
                 set_task_running(candidate_task);
                 current_task = candidate_task;
                 task_stack_mpu_config(current_task);
-                
             }
             break;
         }
@@ -116,7 +124,7 @@ void schedule_next_task(void) {
             break;
         }
         case TERMINATED: {
-         
+
             //set_task_running(candidate_task);
             current_task = candidate_task;
             task_stack_mpu_config(current_task);
@@ -124,11 +132,11 @@ void schedule_next_task(void) {
         }
         default: break;
     }
-    
 }
 
 static int deadline_reached(uint32_t deadline, uint32_t now) { return (int32_t)(now - deadline) >= 0; }
 
+/** @brief Wake expired tasks, program the next deadline, and pend PendSV. */
 void timer_event(void) {
     uint32_t now = timer_now();
 
@@ -150,7 +158,6 @@ void timer_event(void) {
     if (task_ready_count() > 0U) {
         if (deadline_reached(timeslice_end, now)) {
             timeslice_end = now + TASK_TIME_SLICE;
-            
         }
 
         next_deadline = timeslice_end;
@@ -159,16 +166,15 @@ void timer_event(void) {
 
     /* A blocked task may need to wake before the next time slice. */
     task = get_earliest_wakeup_task();
-  
+
     if (task != NULL && (!deadline_available || deadline_before(task->wakeup_tick, next_deadline))) {
         next_deadline = task->wakeup_tick;
         deadline_available = 1;
-  
     }
 
     if (deadline_available) {
         timer_set_deadline(next_deadline);
-    
+
     } else {
         timer_cancel_deadline();
     }
@@ -178,6 +184,11 @@ void timer_event(void) {
     __ISB();
 }
 
+/**
+ * @brief Request scheduler startup through the SVC interface.
+ *
+ * @return Status returned by the scheduler-start system call.
+ */
 TinyStatus_t tiny_scheduler_start(void) {
     register uintptr_t r0 __asm("r0");
     __asm__ volatile("svc %1" : "=r"(r0) : "I"(SVC_SCHEDULER_START) : "memory");

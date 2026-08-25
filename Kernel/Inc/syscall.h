@@ -4,8 +4,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "task.h"
 #include "kernel_task.h"
+#include "task.h"
 
 /*
 
@@ -15,10 +15,9 @@
 +----------------+----------------+
 
 */
-#define SVC_INST_ENCOGING 0xDF00U
+#define SVC_INST_ENCOGING     0xDF00U
 #define SVC_INST_ENCODING_MSK 0xFF00U
-#define SVC_NUMBER_MSK 0x00FFU
-
+#define SVC_NUMBER_MSK        0x00FFU
 
 typedef enum {
     SVC_TASK_CREATE = 0,
@@ -31,6 +30,15 @@ typedef enum {
     SVC_TASK_SET_PRIORITY,
 } SVC_Number_t;
 
-void SVC_Handler_Main(ExceptionFrame_t *frame);
+/**
+ * @brief Decode and dispatch an SVC from its saved exception frame.
+ *
+ * @param frame Hardware-saved caller context.
+ */
+void SVC_Handler_Main(ExceptionFrame_t* frame);
 
 #endif
+/**
+ * @file syscall.h
+ * @brief System-call numbers and SVC dispatch interface.
+ */

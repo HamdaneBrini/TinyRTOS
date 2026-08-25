@@ -10,7 +10,6 @@
 #include "task.h"
 #include "task_stack_allocator.h"
 
-
 #define MAX_TASKS            16U
 #define IDLE_TASK_STACK_SIZE 256U
 #define IDLE_TASK_PRIORITY   0U
@@ -56,7 +55,6 @@ static TCB_t** task_prev_link(const TaskList_t* taskList, TCB_t* task) {
     return taskList->links == TASK_READY_LINKS ? &task->prev : &task->wakeup_prev;
 }
 
-
 __attribute__((noreturn)) static void idle_func(void* arg) {
     (void)arg;
     while (1) {
@@ -64,11 +62,16 @@ __attribute__((noreturn)) static void idle_func(void* arg) {
     }
 }
 
-
-
+/**
+ * @brief Build the initial hardware and software context for a task.
+ *
+ * @param task Task whose stack is initialized.
+ * @return TINY_OK on success, or TINY_FAIL for a NULL task.
+ */
 static TinyStatus_t _task_stack_init(TCB_t* task) {
 
-    if(task==NULL)return TINY_FAIL;
+    if (task == NULL)
+        return TINY_FAIL;
     uint32_t* sp = (uint32_t*)(task->stack_region.base + (uint32_t)task->stack_region.size);
     *(--sp) = INITIAL_XPSR;              /* xpsr*/
     *(--sp) = (uint32_t)task->main_func; /* pc */
@@ -94,7 +97,7 @@ TinyStatus_t task_system_init(void) {
     stack_allocator_init();
     if (task_ready_list_init() != TINY_OK || task_wakeup_list_init() != TINY_OK)
         return TINY_FAIL;
-    TaskHandle_t handle =0;
+    TaskHandle_t handle = 0;
     if (task_create(&handle, (TaskFunc_t)idle_func, NULL, IDLE_TASK_PRIORITY, IDLE_TASK_STACK_SIZE) != TINY_OK)
         return TINY_FAIL;
     idle_task = task_lookup(handle);
@@ -497,19 +500,17 @@ TinyStatus_t task_stack_mpu_config(TCB_t* task) {
 
 TinyStatus_t tiny_task_create(TaskHandle_t* task_handle, TaskFunc_t main_func, void* arg, uint32_t priority,
                               size_t stack_size) {
-                                
+
     TaskCreateArgs_t args = {task_handle, main_func, arg, priority, stack_size};
     register uintptr_t r0 __asm("r0") = (uintptr_t)&args;
-    __asm__ volatile(
-                    "svc %1" 
-                    :"+r"(r0) 
-                    :"I"(SVC_TASK_CREATE)
-                    :"memory");
+    __asm__ volatile("svc %1" : "+r"(r0) : "I"(SVC_TASK_CREATE) : "memory");
 
     return (TinyStatus_t)r0;
 }
 
+/** @brief Terminate a task that returns from its entry function. */
 __attribute__((noreturn)) static void task_exit(void) {
     __asm__ volatile("svc %0" : : "I"(SVC_TASK_EXIT) : "memory");
-    while(1);
+    while (1)
+        ;
 }

@@ -28,9 +28,7 @@ static Allocator_CB_t heap;
  * The linker script reserves the heap directly after `_end`. The initial
  * block consumes that whole region, less the metadata stored at its start.
  */
-void tiny_heap_init(void) {
-    memory_allocator_init((uint32_t)&_end, (size_t)&_Min_Heap_Size,MEM_ALIGNMENT, &heap);
-}
+void tiny_heap_init(void) { memory_allocator_init((uint32_t)&_end, (size_t)&_Min_Heap_Size, MEM_ALIGNMENT, &heap); }
 
 /**
  * @brief Allocate memory from the system heap.
@@ -39,15 +37,11 @@ void tiny_heap_init(void) {
  * @return Pointer to the allocated payload, or NULL if the request cannot be
  *         satisfied.
  */
-void* tiny_malloc(size_t size) {
-    return memory_allocator_alloc(size, &heap);
-}
+void* tiny_malloc(size_t size) { return memory_allocator_alloc(size, &heap); }
 
 /**
  * @brief Return an allocation to the system heap.
  *
  * @param ptr Pointer previously returned by tiny_malloc(); NULL is accepted.
  */
-void tiny_free(void* ptr) {
-    memory_allocator_free(ptr, &heap);
-}
+void tiny_free(void* ptr) { memory_allocator_free(ptr, &heap); }
