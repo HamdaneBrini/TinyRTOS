@@ -8,10 +8,12 @@
 #include <sys/types.h>
 #include "cmsis_gcc.h"
 #include "config.h"
-#include "stm32h5xx.h"
+#include "console.h"
 #include "kernel_task.h"
+#include "stm32h5xx.h"
 #include "syscall.h"
 #include "timer.h"
+
 /** Task max execution time slice in microseconds*/
 #define TASK_TIME_SLICE 1000 /* 1ms */
 
@@ -22,21 +24,29 @@ __attribute__((section(".kernel_bss"))) uint32_t timeslice_end;
 static int deadline_before(uint32_t a, uint32_t b) { return (int32_t)(a - b) < 0; }
 
 __attribute__((naked, noreturn)) void start_first_task(void) {
-    __asm__ volatile("ldr r0, =current_task \n"
-                     "ldr r0, [r0] \n" /* r0 = current_task */
-                     "ldr r0, [r0] \n" /* r0 = current_task->sp */
-                     "ldmia r0!, {r4-r11} \n"
-                     "msr psp, r0 \n"
+    __asm__ volatile("cpsid i                       \n"
 
-                     /* Switch to thread mode and use PSP for execution*/
-                     "mrs r0, CONTROL \n"
-                     "orrs r0, r0, #3 \n"
-                     "msr CONTROL, r0 \n"
-                     "isb \n"
-                     "ldr lr, =0xFFFFFFFD \n"
-                     "bx lr \n"
+                     "ldr r0, =current_task         \n"
+                     "ldr r0, [r0]                  \n"
+                     "ldr r0, [r0]                  \n"
+                     "ldmia r0!, {r4-r11}           \n"
+                     "msr psp, r0                   \n"
 
-    );
+                     /*
+         * SVC_Handler_Main will never return, so discard its abandoned
+         * MSP call frames and restore the kernel stack top.
+         */
+                     "ldr r1, =_estack              \n"
+                     "msr msp, r1                   \n"
+
+                     "mrs r0, control               \n"
+                     "orr r0, r0, #3                \n"
+                     "msr control, r0               \n"
+                     "isb                            \n"
+
+                     "cpsie i                       \n"
+                     "ldr lr, =0xFFFFFFFD           \n"
+                     "bx lr                         \n");
 }
 
 /**
@@ -45,6 +55,7 @@ __attribute__((naked, noreturn)) void start_first_task(void) {
  * @return TINY_OK on success, or TINY_FAIL if ready-list initialization fails.
  */
 TinyStatus_t scheduler_init(void) {
+    NVIC_SetPriority(PendSV_IRQn, (1UL << __NVIC_PRIO_BITS) - 1UL);
     current_task = NULL;
     timeslice_end = 0U;
     return task_system_init();
@@ -53,7 +64,7 @@ TinyStatus_t scheduler_init(void) {
 TinyStatus_t scheduler_start(void) {
 
     TCB_t* first_task = get_highest_priority_ready_task();
-   
+
     if (first_task == NULL)
         return TINY_FAIL;
     current_task = first_task;
@@ -64,6 +75,7 @@ TinyStatus_t scheduler_start(void) {
 }
 
 void schedule_next_task(void) {
+    __disable_irq();
     TCB_t* candidate_task = get_highest_priority_ready_task();
     if (candidate_task == NULL)
         return;
@@ -74,9 +86,11 @@ void schedule_next_task(void) {
                 set_task_ready(current_task);
                 set_task_running(candidate_task);
                 current_task = candidate_task;
+                task_stack_mpu_config(current_task);
 
             } else if (candidate_task->priority == current_task->priority) {
-                current_task->status = READY;
+                
+                set_task_ready(current_task);
                 /**
             TODO:
             insert task at the end of the priority part (round robin)
@@ -84,43 +98,79 @@ void schedule_next_task(void) {
             */
                 set_task_running(candidate_task);
                 current_task = candidate_task;
+                task_stack_mpu_config(current_task);
+                
             }
             break;
         }
         case SUSPENDED: {
             set_task_running(candidate_task);
             current_task = candidate_task;
+            task_stack_mpu_config(current_task);
             break;
         }
         case BLOCKED: {
             set_task_running(candidate_task);
             current_task = candidate_task;
+            task_stack_mpu_config(current_task);
             break;
         }
         case TERMINATED: {
-            set_task_running(candidate_task);
+         
+            //set_task_running(candidate_task);
             current_task = candidate_task;
+            task_stack_mpu_config(current_task);
             break;
         }
         default: break;
     }
-    if (task_ready_count() > 0U) {
-        timeslice_end += TASK_TIME_SLICE;
-        timer_set_deadline(timeslice_end);
-    }
+    
 }
+
+static int deadline_reached(uint32_t deadline, uint32_t now) { return (int32_t)(now - deadline) >= 0; }
 
 void timer_event(void) {
     uint32_t now = timer_now();
-    TCB_t* task = get_earliest_wakeup_task();
-    while (task != NULL) {
-        if (deadline_before(task->wakeup_tick, now) || task->wakeup_tick == now) {
-            if (set_task_ready(task) != TINY_OK) {
-                break;
-            }
-            task = get_next_wakeup_task(task);
-        } else
+
+    /* Wake every expired task. */
+    TCB_t* task;
+    while ((task = get_earliest_wakeup_task()) != NULL && deadline_reached(task->wakeup_tick, now)) {
+        if (set_task_ready(task) != TINY_OK) {
             break;
+        }
+    }
+
+    uint32_t next_deadline = 0U;
+    int deadline_available = 0;
+
+    /*
+     * Schedule another time slice only when another task is ready.
+     * The currently running task is not part of the ready list.
+     */
+    if (task_ready_count() > 0U) {
+        if (deadline_reached(timeslice_end, now)) {
+            timeslice_end = now + TASK_TIME_SLICE;
+            
+        }
+
+        next_deadline = timeslice_end;
+        deadline_available = 1;
+    }
+
+    /* A blocked task may need to wake before the next time slice. */
+    task = get_earliest_wakeup_task();
+  
+    if (task != NULL && (!deadline_available || deadline_before(task->wakeup_tick, next_deadline))) {
+        next_deadline = task->wakeup_tick;
+        deadline_available = 1;
+  
+    }
+
+    if (deadline_available) {
+        timer_set_deadline(next_deadline);
+    
+    } else {
+        timer_cancel_deadline();
     }
 
     SCB->ICSR = SCB_ICSR_PENDSVSET_Msk;
@@ -128,13 +178,8 @@ void timer_event(void) {
     __ISB();
 }
 
-TinyStatus_t tiny_scheduler_start(void){
+TinyStatus_t tiny_scheduler_start(void) {
     register uintptr_t r0 __asm("r0");
-    __asm__ volatile (
-        "svc %1"
-        :"=r"(r0)
-        : "I"(SVC_SCHEDULER_START)
-        : "memory"
-    );
+    __asm__ volatile("svc %1" : "=r"(r0) : "I"(SVC_SCHEDULER_START) : "memory");
     return (TinyStatus_t)r0;
 }
