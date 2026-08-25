@@ -1,3 +1,7 @@
+/**
+ * @file timer.c
+ * @brief TIM2 output-compare timer implementation.
+ */
 
 #include "timer.h"
 

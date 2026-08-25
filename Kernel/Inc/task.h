@@ -1,3 +1,8 @@
+/**
+ * @file task.h
+ * @brief Public task creation interface.
+ */
+
 #ifndef TASK_H
 #define TASK_H
 
@@ -24,7 +29,3 @@ TinyStatus_t tiny_task_create(TaskHandle_t* task_handle, TaskFunc_t main_func, v
                               size_t stack_size);
 
 #endif /* TASK_H */
-/**
- * @file task.h
- * @brief Public task creation interface.
- */

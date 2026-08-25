@@ -1,3 +1,8 @@
+/**
+ * @file test_scheduler.c
+ * @brief Unit tests for task lists, task transitions, and scheduler setup.
+ */
+
 #include <stddef.h>
 
 #include "console.h"
