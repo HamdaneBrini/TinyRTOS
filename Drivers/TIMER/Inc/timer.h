@@ -11,5 +11,6 @@ void timer_init(void);
 uint32_t timer_now(void);
 void timer_start(uint32_t first_deadline);
 void timer_set_deadline(uint32_t deadline);
+void timer_cancel_deadline(void);
 void timer_event(void);
 #endif /* TIMER_H */

@@ -109,6 +109,11 @@ void timer_set_deadline(uint32_t deadline)
         TIM_CHANNEL_1,
         deadline);
 }
+void timer_cancel_deadline(void)
+{
+    __HAL_TIM_DISABLE_IT(&htim2, TIM_IT_CC1);
+    __HAL_TIM_CLEAR_FLAG(&htim2, TIM_FLAG_CC1);
+}
 void HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim)
 {
     if (htim->Instance == TIM2 &&
