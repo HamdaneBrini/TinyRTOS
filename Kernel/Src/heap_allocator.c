@@ -20,7 +20,7 @@ extern uint32_t _end, _Min_Heap_Size;
 _Static_assert(MEM_ALIGNMENT <= 8, "Linker heap alignment is insufficient");
 
 /* Allocator state is private to this translation unit. */
-static Allocator_CB_t heap;
+__attribute__((section(".kernel_bss"))) static Allocator_CB_t heap;
 
 /**
  * @brief Initialize the heap as one large free block.

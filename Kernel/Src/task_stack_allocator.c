@@ -19,7 +19,7 @@ extern uint32_t _suser_stack, _Min_Stack_Size, _euser_stack;
 _Static_assert(TASK_STACK_ALIGNMENT == 32U, "Task payloads must be 32-byte aligned");
 
 /* Allocator state is private to this translation unit. */
-static Allocator_CB_t task_stack;
+__attribute__((section(".kernel_bss"))) static Allocator_CB_t task_stack;
 
 uint32_t get_stack_base_address(void) { return (uint32_t)&_suser_stack; }
 
