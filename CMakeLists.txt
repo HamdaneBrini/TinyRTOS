@@ -73,6 +73,10 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Kernel/Src/config.c
     Kernel/Src/syscall.c
     Kernel/Src/task.c
+    Kernel/Port/CortexM33/port.c
+    Kernel/Port/CortexM33/port_context.c
+    Kernel/Port/CortexM33/port_exception.c
+    Kernel/Port/CortexM33/port_mpu.c
 
 )
 
