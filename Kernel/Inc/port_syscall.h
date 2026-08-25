@@ -17,7 +17,7 @@
 /** @brief Invoke an SVC with no arguments and capture its R0 result. */
 #define PORT_SYSCALL_RET_0(result, svc_number)                                                                         \
     do {                                                                                                               \
-        register uintptr_t port_r0 __asm("r0") = (uintptr_t)(arg0);                                                    \
+        register uintptr_t port_r0 __asm("r0");                                                                        \
         __asm__ volatile("svc %1" : "=r"(port_r0) : "I"(svc_number) : "memory");                                       \
         (result) = port_r0;                                                                                            \
     } while (0)

@@ -12,6 +12,7 @@
 #include "mpu.h"
 #include "port.h"
 #include "port_exception.h"
+#include "port_syscall.h"
 #include "stm32h5xx.h"
 #include "syscall.h"
 #include "task.h"
@@ -511,22 +512,21 @@ TinyStatus_t task_stack_mpu_config(TCB_t* task) {
     uint32_t base_address = task->stack_region.base;
     uint32_t limit_address = base_address + (uint32_t)task->stack_region.size - 1U;
 
-    return MPU_config(base_address, limit_address, task->stack_region.access_permission, 0, MEMORY_REGION_NUMEBER_1);
+    return port_MPU_config(base_address, limit_address, task->stack_region.access_permission, 0,
+                           MEMORY_REGION_NUMEBER_1);
 }
 
 TinyStatus_t tiny_task_create(TaskHandle_t* task_handle, TaskFunc_t main_func, void* arg, uint32_t priority,
                               size_t stack_size) {
-
+    TinyStatus_t status = TINY_FAIL;
     TaskCreateArgs_t args = {task_handle, main_func, arg, priority, stack_size};
-    register uintptr_t r0 __asm("r0") = (uintptr_t)&args;
-    __asm__ volatile("svc %1" : "+r"(r0) : "I"(SVC_TASK_CREATE) : "memory");
-
-    return (TinyStatus_t)r0;
+    PORT_SYSCALL_RET_1(status, SVC_TASK_CREATE, &args);
+    return status;
 }
 
 /** @brief Terminate a task that returns from its entry function. */
 __attribute__((noreturn)) static void task_exit(void) {
-    __asm__ volatile("svc %0" : : "I"(SVC_TASK_EXIT) : "memory");
+    PORT_SYSCALL_VOID_0(SVC_TASK_EXIT);
     while (1)
         ;
 }

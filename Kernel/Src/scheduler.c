@@ -10,7 +10,9 @@
 #include "config.h"
 #include "console.h"
 #include "kernel_task.h"
+#include "port_context.h"
 #include "port.h"
+#include "port_syscall.h"
 #include "stm32h5xx.h"
 #include "syscall.h"
 #include "timer.h"
@@ -176,7 +178,7 @@ void timer_event(void) {
  * @return Status returned by the scheduler-start system call.
  */
 TinyStatus_t tiny_scheduler_start(void) {
-    register uintptr_t r0 __asm("r0");
-    __asm__ volatile("svc %1" : "=r"(r0) : "I"(SVC_SCHEDULER_START) : "memory");
-    return (TinyStatus_t)r0;
+    TinyStatus_t status = TINY_FAIL;
+    PORT_SYSCALL_RET_0(status, SVC_SCHEDULER_START);
+    return status;
 }

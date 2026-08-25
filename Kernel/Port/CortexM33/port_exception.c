@@ -4,7 +4,7 @@
  */
 
 #include <stdint.h>
-#include "port.h"
+#include "port_exception.h"
 #include "stm32h533xx.h"
 
 /**

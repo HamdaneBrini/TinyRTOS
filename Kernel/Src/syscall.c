@@ -8,6 +8,7 @@
 #include "config.h"
 #include "kernel_task.h"
 #include "port.h"
+#include "port_context.h"
 #include "scheduler.h"
 #include "syscall.h"
 #include "task.h"

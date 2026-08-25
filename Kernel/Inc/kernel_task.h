@@ -11,6 +11,7 @@
 #include "config.h"
 #include "mpu.h"
 #include "task.h"
+#include "port_mpu.h"
 
 /** @brief Opaque task control block type. */
 typedef struct TCB_t TCB_t;
