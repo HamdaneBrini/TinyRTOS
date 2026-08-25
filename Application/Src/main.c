@@ -40,14 +40,22 @@ void System_start(void);
 
 uint32_t shared_data = 4;
 uint32_t shared_bss;
-void task1(void) {
-    int a=0;
-    for (int i=0; i<10 ; i++){
-      a++;
-    } 
-    shared_bss=55;
-    shared_data=47;
-    while(1);
+
+void task1(void* arg) {
+    (void)arg;
+    int a = 0;
+    for (int i = 0; i < 10; i++) {
+        a++;
+    }
+    shared_bss = 55;
+    shared_data = 47;
+
+}
+
+void task2(void* arg) {
+    (void)arg;
+    shared_bss = 6;
+
 }
 
 /**
@@ -61,12 +69,20 @@ int main(void) {
     Test_start();
 #else
     /* Start user tasks */
-    TaskHandle_t task_handle=1;
-  tiny_task_create(&task_handle, (TaskFunc_t)task1, NULL, 1, 512);
-  if (tiny_scheduler_start()!=TINY_OK){
-    Error_Handler();
-  };
-    while (1) {}
+    TaskHandle_t task_handler1 = 1;
+    TaskHandle_t task_handler2 = 2;
+    if (tiny_task_create(&task_handler1, task1, NULL, 1, 512) != TINY_OK) {
+        Error_Handler();
+    }
+    if (tiny_task_create(&task_handler2, task2, NULL, 1, 512) != TINY_OK) {
+        Error_Handler();
+    }
+
+    if (tiny_scheduler_start() != TINY_OK) {
+        Error_Handler();
+    };
+    while (1)
+        ;
 #endif
 }
 
@@ -79,13 +95,11 @@ void System_start(void) {
     /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
     HAL_Init();
 
-    /* Restrict the dedicated kernel SRAM to privileged accesses. */
-    if (MPU_kernel_config() != TINY_OK) {
-        Error_Handler();
-    }
-  
     /* Configure the system clock */
     SystemClock_Config();
+    SCB->SHCSR |= SCB_SHCSR_BUSFAULTENA_Msk;
+    __DSB();
+    __ISB();
 
     /* Initialize all configured peripherals */
     gpio_init();
@@ -97,7 +111,10 @@ void System_start(void) {
     tinyprint("=======CONSOLE INITIALIZED SUCCESSFULLY======\n\n");
     tiny_heap_init();
     tinyprint("=======HEAP INITIALIZED SUCCESSFULLY======\n\n");
-
+    /* Restrict the dedicated kernel SRAM to privileged accesses. */
+    if (MPU_kernel_config() != TINY_OK) {
+        Error_Handler();
+    }
     if (scheduler_init() != TINY_OK) {
         Error_Handler();
     };
