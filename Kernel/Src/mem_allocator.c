@@ -6,6 +6,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "config.h"
 #include "mem_allocator.h"
 
 /**
@@ -15,7 +16,8 @@
  * @param mem_size Total size of the memory region in bytes.
  * @param allocator_CB Allocator state to initialize.
  */
-void memory_allocator_init(uint32_t base_address, size_t mem_size, size_t mem_aligment, Allocator_CB_t* allocator_CB) {
+TinyStatus_t memory_allocator_init(uint32_t base_address, size_t mem_size, size_t mem_aligment,
+                                   Allocator_CB_t* allocator_CB) {
     allocator_CB->head = (MemBlock*)base_address;
     allocator_CB->head->is_empty = 1;
     allocator_CB->mem_aligment = mem_aligment;
@@ -25,6 +27,7 @@ void memory_allocator_init(uint32_t base_address, size_t mem_size, size_t mem_al
     allocator_CB->head->prev = NULL;
     allocator_CB->mem_size = mem_size;
     allocator_CB->initialized = 1;
+    return TINY_OK;
 }
 
 /**
@@ -181,12 +184,13 @@ static void _mem_coalescing(MemBlock* block, Allocator_CB_t* allocator_CB) {
  * @param ptr Pointer to the payload being released.
  * @param allocator_CB Allocator that owns the allocation.
  */
-void memory_allocator_free(void* ptr, Allocator_CB_t* allocator_CB) {
+TinyStatus_t memory_allocator_free(void* ptr, Allocator_CB_t* allocator_CB) {
     if (!allocator_CB->initialized)
-        return;
+        return TINY_FAIL;
     if (ptr == NULL)
-        return;
+        return TINY_FAIL;
     MemBlock* current_block = (MemBlock*)((size_t)ptr - allocator_CB->block_header_size);
     current_block->is_empty = 1;
     _mem_coalescing(current_block, allocator_CB);
+    return TINY_OK;
 }

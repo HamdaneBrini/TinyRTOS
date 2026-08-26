@@ -7,6 +7,7 @@
 #define HEAP_ALLOCATOR_H
 
 #include <stddef.h>
+#include "config.h"
 
 /** @brief Alignment applied to every allocation payload. */
 #define MEM_ALIGNMENT _Alignof(max_align_t)
@@ -15,7 +16,7 @@
  *
  * This function must be called once before the first call to tiny_malloc().
  */
-void tiny_heap_init(void);
+TinyStatus_t kernel_heap_init(void);
 
 /**
  * @brief Allocate memory from the static heap.
@@ -24,7 +25,7 @@ void tiny_heap_init(void);
  * @return Pointer to suitably aligned memory, or NULL if @p size is zero or
  *         the request cannot be satisfied.
  */
-void* tiny_malloc(size_t size);
+void* kernel_malloc(size_t size);
 
 /**
  * @brief Return an allocation to the static heap.
@@ -38,6 +39,6 @@ void* tiny_malloc(size_t size);
  *
  * @param ptr Pointer previously returned by tiny_malloc().
  */
-void tiny_free(void* ptr);
+TinyStatus_t kernel_free(void* ptr);
 
 #endif /* HEAP_ALLOCATOR_H */

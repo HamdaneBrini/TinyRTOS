@@ -9,6 +9,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include "alignment.h"
+#include "config.h"
 
 /** @brief Metadata stored immediately before every user-visible allocation. */
 typedef struct MemBlock {
@@ -38,7 +39,8 @@ typedef struct Allocator_CB {
  * @param mem_aligment Required payload alignment in bytes.
  * @param allocator_CB Allocator state to initialize.
  */
-void memory_allocator_init(uint32_t base_address, size_t mem_size, size_t mem_aligment, Allocator_CB_t* allocator_CB);
+TinyStatus_t memory_allocator_init(uint32_t base_address, size_t mem_size, size_t mem_aligment,
+                                   Allocator_CB_t* allocator_CB);
 
 /**
  * @brief Allocate memory from a generic allocator.
@@ -61,6 +63,6 @@ void* memory_allocator_alloc(size_t size, Allocator_CB_t* allocator_CB);
  * @param ptr Pointer to the payload being released; NULL is accepted.
  * @param allocator_CB Allocator that owns the allocation.
  */
-void memory_allocator_free(void* ptr, Allocator_CB_t* allocator_CB);
+TinyStatus_t memory_allocator_free(void* ptr, Allocator_CB_t* allocator_CB);
 
 #endif /* MEM_ALLOCATOR_H */

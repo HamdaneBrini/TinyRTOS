@@ -5,6 +5,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include "config.h"
 #include "mem_allocator.h"
 #include "task_stack_allocator.h"
 
@@ -33,8 +34,8 @@ size_t get_Min_Stack_Size(void) { return (size_t)&_Min_Stack_Size; }
  * The initial block consumes the stack region reserved by the linker script,
  * less the metadata stored at its start.
  */
-void stack_allocator_init(void) {
-    memory_allocator_init((uint32_t)&_suser_stack, (size_t)&_Min_Stack_Size, TASK_STACK_ALIGNMENT, &task_stack);
+TinyStatus_t stack_allocator_init(void) {
+    return memory_allocator_init((uint32_t)&_suser_stack, (size_t)&_Min_Stack_Size, TASK_STACK_ALIGNMENT, &task_stack);
 }
 
 /**
@@ -52,4 +53,4 @@ void* stack_malloc(size_t size) { return memory_allocator_alloc(size, &task_stac
  * @param ptr Pointer previously returned by tiny_stack_malloc(); NULL is
  *            accepted.
  */
-void stack_free(void* ptr) { memory_allocator_free(ptr, &task_stack); }
+TinyStatus_t stack_free(void* ptr) { return memory_allocator_free(ptr, &task_stack); }
