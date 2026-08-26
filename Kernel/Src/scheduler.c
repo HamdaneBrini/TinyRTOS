@@ -10,8 +10,9 @@
 #include "config.h"
 #include "console.h"
 #include "kernel_task.h"
-#include "port_context.h"
+#include "kernel_timing.h"
 #include "port.h"
+#include "port_context.h"
 #include "port_syscall.h"
 #include "stm32h5xx.h"
 #include "syscall.h"
@@ -23,8 +24,6 @@
 /* Scheduler state is placed in privileged kernel RAM by the linker script. */
 __attribute__((section(".kernel_bss"))) TCB_t* current_task;
 __attribute__((section(".kernel_bss"))) uint32_t timeslice_end;
-
-static int _deadline_before(uint32_t a, uint32_t b) { return (int32_t)(a - b) < 0; }
 
 /**
  * @brief Initialize scheduler-owned state.
@@ -123,15 +122,13 @@ uint32_t* scheduler_context_switch(uint32_t* saved_sp) {
     return current_task->sp;
 }
 
-static int _deadline_reached(uint32_t deadline, uint32_t now) { return (int32_t)(now - deadline) >= 0; }
-
 /** @brief Wake expired tasks, program the next deadline, and pend PendSV. */
 void timer_event(void) {
     uint32_t now = timer_now();
     CriticalState_t critical_state = critical_enter();
     /* Wake every expired task. */
     TCB_t* task;
-    while ((task = get_earliest_wakeup_task()) != NULL && _deadline_reached(task->wakeup_tick, now)) {
+    while ((task = get_earliest_wakeup_task()) != NULL && deadline_reached(task->wakeup_tick, now)) {
         if (set_task_ready(task) != TINY_OK) {
             break;
         }
@@ -145,7 +142,7 @@ void timer_event(void) {
      * The currently running task is not part of the ready list.
      */
     if (task_ready_count() > 0U) {
-        if (_deadline_reached(timeslice_end, now)) {
+        if (deadline_reached(timeslice_end, now)) {
             timeslice_end = now + TASK_TIME_SLICE;
         }
 
@@ -156,7 +153,7 @@ void timer_event(void) {
     /* A blocked task may need to wake before the next time slice. */
     task = get_earliest_wakeup_task();
 
-    if (task != NULL && (!deadline_available || _deadline_before(task->wakeup_tick, next_deadline))) {
+    if (task != NULL && (!deadline_available || deadline_before(task->wakeup_tick, next_deadline))) {
         next_deadline = task->wakeup_tick;
         deadline_available = 1;
     }
