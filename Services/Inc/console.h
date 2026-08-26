@@ -31,7 +31,7 @@ void console_write(const char* buffer, size_t len);
  * @param format Null-terminated format string.
  * @param args Arguments corresponding to the conversions in @p format.
  */
-void tiny_vprint(const char* format, va_list args);
+void vprint(const char* format, va_list args);
 
 /**
  * @brief Write a minimally formatted string to the console.
@@ -41,6 +41,6 @@ void tiny_vprint(const char* format, va_list args);
  * @param format Null-terminated format string.
  * @param ... Values corresponding to the conversion specifiers in @p format.
  */
-void tinyprint(const char* format, ...);
+void print(const char* format, ...);
 
 #endif /* CONSOLE_H */

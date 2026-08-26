@@ -33,13 +33,13 @@ void console_write(const char* buffer, size_t len) { uart_write((const uint8_t*)
 /**
  * @brief Write a minimally formatted string using an existing argument list.
  *
- * This is the shared formatting engine used by tinyprint() and the logging
+ * This is the shared formatting engine used by print() and the logging
  * service. The caller retains ownership of @p args.
  *
  * @param format Null-terminated format string.
  * @param args Arguments corresponding to the conversions in @p format.
  */
-void tiny_vprint(const char* format, va_list args) {
+void vprint(const char* format, va_list args) {
     char tmp_int[12];
     char tmp_uint[12];
 
@@ -92,9 +92,9 @@ void tiny_vprint(const char* format, va_list args) {
  * @param format Null-terminated format string.
  * @param ... Values corresponding to the conversion specifiers in @p format.
  */
-void tinyprint(const char* format, ...) {
+void print(const char* format, ...) {
     va_list args;
     va_start(args, format);
-    tiny_vprint(format, args);
+    vprint(format, args);
     va_end(args);
 }

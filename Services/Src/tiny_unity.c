@@ -33,8 +33,8 @@ int tiny_assert(int condition, const char* message, const char* file, uint32_t l
     }
 
     test_status.current_test_failed = 1U;
-    tinyprint("  %s:%u: assertion failed in %s\n", file, line, test_name);
-    tinyprint("    %s\n", message);
+    print("  %s:%u: assertion failed in %s\n", file, line, test_name);
+    print("    %s\n", message);
     return 0;
 }
 
@@ -48,17 +48,17 @@ void tiny_test_result(const char* test_name) {
     test_status.test_count++;
     if (test_status.current_test_failed != 0U) {
         test_status.failed_count++;
-        tinyprint("%s: FAIL\n", test_name);
+        print("%s: FAIL\n", test_name);
     } else {
-        tinyprint("%s: PASS\n", test_name);
+        print("%s: PASS\n", test_name);
     }
     test_status.current_test_failed = 0U;
 }
 
 void tiny_test_end(void) {
-    tinyprint("\n-----------------------\n");
-    tinyprint("%u Tests %u Failures\n", test_status.test_count, test_status.failed_count);
-    tinyprint(test_status.failed_count == 0U ? "OK\n" : "FAIL\n");
+    print("\n-----------------------\n");
+    print("%u Tests %u Failures\n", test_status.test_count, test_status.failed_count);
+    print(test_status.failed_count == 0U ? "OK\n" : "FAIL\n");
 
     __disable_irq();
     /** Avoid causing a HardFault when no debugger is connected. */
