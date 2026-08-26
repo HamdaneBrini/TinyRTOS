@@ -9,6 +9,7 @@
 #include "cmsis_gcc.h"
 #include "config.h"
 #include "kernel_task.h"
+#include "kernel_timing.h"
 #include "mpu.h"
 #include "port.h"
 #include "port_exception.h"
@@ -17,6 +18,7 @@
 #include "syscall.h"
 #include "task.h"
 #include "task_stack_allocator.h"
+#include "timer.h"
 
 #define MAX_TASKS            16U
 #define IDLE_TASK_STACK_SIZE 256U
@@ -35,15 +37,13 @@ TinyStatus_t _remove_task_from_wakeup_list(TCB_t* task);
 static TinyStatus_t _task_stack_init(TCB_t* task);
 static void task_exit(void);
 
-static inline TCB_t* task_lookup(TaskHandle_t task_handle) {
+TCB_t* task_lookup(TaskHandle_t task_handle) {
     if (task_handle >= MAX_TASKS)
         return NULL;
     return &TCBT[task_handle];
 }
 
 static int compare_priority(const TCB_t* a, const TCB_t* b) { return a->priority > b->priority; }
-
-static int deadline_before(uint32_t a, uint32_t b) { return (int32_t)(a - b) < 0; }
 
 static int compare_wakeup(const TCB_t* a, const TCB_t* b) { return deadline_before(a->wakeup_tick, b->wakeup_tick); }
 
@@ -122,6 +122,7 @@ TinyStatus_t task_create(TaskHandle_t* task_handle, TaskFunc_t main_func, void* 
             }
             TCB_t* new_task = &TCBT[i];
             new_task->status = READY;
+            new_task->status_before_suspend = READY;
             new_task->block_reason = BLOCK_NONE;
             new_task->main_func = main_func;
             new_task->arg = arg;
@@ -420,6 +421,9 @@ TinyStatus_t set_task_suspended(TCB_t* task) {
     if (task == NULL) {
         return TINY_FAIL;
     }
+    if (task->status == TERMINATED || task->status == UNUSED) {
+        return TINY_FAIL;
+    }
     if (task->status == SUSPENDED) {
         return TINY_OK;
     }
@@ -430,11 +434,48 @@ TinyStatus_t set_task_suspended(TCB_t* task) {
         && _remove_task_from_wakeup_list(task) != TINY_OK) {
         return TINY_FAIL;
     }
+    task->status_before_suspend = task->status;
     TinyStatus_t result = set_task_not_ready(task, SUSPENDED);
-    if (result == TINY_OK) {
-        task->block_reason = BLOCK_NONE;
-    }
     return result;
+}
+
+TinyStatus_t resume_task(TCB_t* task) {
+    if (task == NULL || task->status != SUSPENDED) {
+        return TINY_FAIL;
+    }
+
+    switch (task->status_before_suspend) {
+        case BLOCKED: {
+            if (task_has_timed_block_reason(task)) {
+                uint32_t now = timer_now();
+                if (deadline_reached(task->wakeup_tick, now)) {
+                    return set_task_ready(task);
+                }
+
+                task->status = BLOCKED;
+                if (_insert_task_by_wakeup(task) != TINY_OK) {
+                    task->status = SUSPENDED;
+                    return TINY_FAIL;
+                }
+
+                TCB_t* earliest_task = get_earliest_wakeup_task();
+                if (earliest_task != NULL) {
+                    timer_set_deadline(earliest_task->wakeup_tick);
+                }
+            } else {
+                task->status = BLOCKED;
+            }
+
+            return TINY_OK;
+        }
+
+        case READY:
+        case RUNNING: return set_task_ready(task);
+
+        default: {
+            return TINY_FAIL;
+        }
+    }
 }
 
 /**
@@ -514,14 +555,6 @@ TinyStatus_t task_stack_mpu_config(TCB_t* task) {
 
     return port_MPU_config(base_address, limit_address, task->stack_region.access_permission, 0,
                            MEMORY_REGION_NUMEBER_1);
-}
-
-TinyStatus_t tiny_task_create(TaskHandle_t* task_handle, TaskFunc_t main_func, void* arg, uint32_t priority,
-                              size_t stack_size) {
-    TinyStatus_t status = TINY_FAIL;
-    TaskCreateArgs_t args = {task_handle, main_func, arg, priority, stack_size};
-    PORT_SYSCALL_RET_1(status, SVC_TASK_CREATE, &args);
-    return status;
 }
 
 /** @brief Terminate a task that returns from its entry function. */

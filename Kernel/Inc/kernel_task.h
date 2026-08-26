@@ -10,8 +10,8 @@
 #include <stdint.h>
 #include "config.h"
 #include "mpu.h"
-#include "task.h"
 #include "port_mpu.h"
+#include "task.h"
 
 /** @brief Opaque task control block type. */
 typedef struct TCB_t TCB_t;
@@ -43,6 +43,7 @@ struct TCB_t {
     TCB_t* wakeup_next;
     TCB_t* wakeup_prev;
     TaskStatus_t status;
+    TaskStatus_t status_before_suspend;
     TaskBlockReason_t block_reason;
     uint32_t priority;
     uint32_t wakeup_tick;
@@ -138,6 +139,19 @@ TinyStatus_t task_move_to_priority_tail(TCB_t* task);
 /** @brief Configure the dynamic MPU region for a task stack. */
 TinyStatus_t task_stack_mpu_config(TCB_t* task);
 
+/**
+ * @brief Resolve a public task handle to its kernel control block.
+ * @param task_handle Handle to resolve.
+ * @return Matching task control block, or NULL when the handle is invalid.
+ */
+TCB_t* task_lookup(TaskHandle_t task_handle);
+
+/**
+ * @brief Resume a suspended task and return it to the ready list.
+ * @param task Task to resume.
+ * @return TINY_OK on success; otherwise TINY_FAIL.
+ */
+TinyStatus_t resume_task(TCB_t* task);
 #ifdef UNIT_TEST
 /** @return Read-only ready-list state for structural tests. */
 const TaskList_t* task_ready_list_get(void);
