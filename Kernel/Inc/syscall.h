@@ -34,7 +34,11 @@ typedef enum {
     SVC_TASK_SUSPEND,
     SVC_TASK_RESUME,
     SVC_TASK_SET_PRIORITY,
-    SVC_CONSOLE_OUT
+    SVC_CONSOLE_OUT,
+    SVC_TIMER_NOW,
+    SVC_MEMORY_ALLOC,
+    SVC_MEMORY_FREE,
+
 } SVC_Number_t;
 
 /**
