@@ -62,7 +62,6 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Drivers/UART/Src/uart.c
     Services/Src/console.c
     Utils/Src/string_utils.c
-    Utils/Src/io_utils.c
     Kernel/Src/heap_allocator.c
     Kernel/Src/mem_allocator.c
     Kernel/Src/task_stack_allocator.c
@@ -70,13 +69,17 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Services/Src/logging.c
     Kernel/Src/scheduler.c
     Kernel/Src/mpu.c
-    Kernel/Src/config.c
     Kernel/Src/syscall.c
     Kernel/Src/task.c
+    Kernel/Src/timing.c
     Kernel/Port/CortexM33/port.c
     Kernel/Port/CortexM33/port_context.c
     Kernel/Port/CortexM33/port_exception.c
     Kernel/Port/CortexM33/port_mpu.c
+    Kernel/API/Src/task_sys.c
+    Kernel/API/Src/timing_sys.c
+    Kernel/API/Src/memory_sys.c
+    Kernel/API/Src/stdout_sys.c
 
 )
 
@@ -97,6 +100,7 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/Services/Inc/Logging
     ${CMAKE_SOURCE_DIR}/Utils/Inc
     ${CMAKE_SOURCE_DIR}/Kernel/Inc
+    ${CMAKE_SOURCE_DIR}/Kernel/API/Inc
     $<$<BOOL:${TINYRTOS_UNIT_TEST}>:${CMAKE_SOURCE_DIR}/Application/test>
 )
 
