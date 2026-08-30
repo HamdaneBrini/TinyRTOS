@@ -1,14 +1,14 @@
 /**
  * @file port_mpu.c
- * @brief Reserved Cortex-M33 MPU port implementation unit.
+ * @brief Cortex-M33 MPU region configuration.
  */
 #include <stdint.h>
 
 #include "config.h"
 #include "mpu.h"
+#include "port_mpu.h"
 #include "stm32h5xx_hal.h"
 #include "stm32h5xx_hal_cortex.h"
-#include "port_mpu.h"
 
 /**
  * @brief Configure and enable a Cortex-M33 MPU region.
@@ -67,9 +67,15 @@ TinyStatus_t port_MPU_config(uint32_t base_address, uint32_t limit_address, Memo
 
     HAL_MPU_ConfigRegion(&region);
 
+    /* Unit tests inspect kernel state directly, so leave MPU enforcement
+     * disabled instead of applying the production privilege boundaries. */
+#ifdef UNIT_TEST
+    HAL_MPU_Disable();
+#else
     /* Keep the default map for privileged kernel code. Unprivileged tasks
      * require explicit code and data regions before they are started. */
     HAL_MPU_Enable(MPU_PRIVILEGED_DEFAULT);
+#endif
 
     return TINY_OK;
 }

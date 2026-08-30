@@ -38,12 +38,14 @@ int tiny_assert(int condition, const char* message, const char* file, uint32_t l
     return 0;
 }
 
+/** @copydoc tiny_test_begin */
 void tiny_test_begin(void) {
     test_status.failed_count = 0;
     test_status.test_count = 0;
     test_status.current_test_failed = 0;
 }
 
+/** @copydoc tiny_test_result */
 void tiny_test_result(const char* test_name) {
     test_status.test_count++;
     if (test_status.current_test_failed != 0U) {
@@ -55,16 +57,15 @@ void tiny_test_result(const char* test_name) {
     test_status.current_test_failed = 0U;
 }
 
+/** @copydoc tiny_test_end */
 void tiny_test_end(void) {
     print("\n-----------------------\n");
     print("%u Tests %u Failures\n", test_status.test_count, test_status.failed_count);
     print(test_status.failed_count == 0U ? "OK\n" : "FAIL\n");
 
     __disable_irq();
-    /** Avoid causing a HardFault when no debugger is connected. */
-    if ((CoreDebug->DHCSR & CoreDebug_DHCSR_C_DEBUGEN_Msk) != 0U) {
-        __BKPT(0);
-    }
+    /* Remain in a low-power halt; an unconditional BKPT would fault when no
+     * debugger is attached. */
     while (1) {
         __WFI();
     }
