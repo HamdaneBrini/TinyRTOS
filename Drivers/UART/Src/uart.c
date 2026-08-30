@@ -5,6 +5,7 @@
 
 #include "uart.h"
 
+#include "config.h"
 #include "stm32h5xx_hal.h"
 #include "stm32h5xx_hal_def.h"
 #include "stm32h5xx_hal_uart.h"
@@ -18,9 +19,9 @@ static UART_HandleTypeDef huart2;
  * USART2 is configured for 115200 baud, 8 data bits, one stop bit, no parity,
  * no hardware flow control, and both transmit and receive operation.
  *
- * @note This function does not return if HAL initialization fails.
+ * @return TINY_OK on success, or TINY_FAIL if HAL initialization fails.
  */
-void uart_init(void) {
+TinyStatus_t uart_init(void) {
     __HAL_RCC_USART2_CLK_ENABLE();
     huart2.Instance = USART2;
 
@@ -33,9 +34,9 @@ void uart_init(void) {
     huart2.Init.OverSampling = UART_OVERSAMPLING_16;
 
     if (HAL_UART_Init(&huart2) != HAL_OK) {
-        while (1)
-            ;
+        return TINY_FAIL;
     }
+    return TINY_OK;
 }
 
 /**

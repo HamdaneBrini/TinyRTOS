@@ -7,11 +7,13 @@
 #define UART_H
 
 #include <stdint.h>
+#include "config.h"
 
 /**
  * @brief Initialize USART2 for console communication.
+ * @return TINY_OK on success, or TINY_FAIL if HAL initialization fails.
  */
-void uart_init(void);
+TinyStatus_t uart_init(void);
 
 /**
  * @brief Transmit bytes through USART2.
