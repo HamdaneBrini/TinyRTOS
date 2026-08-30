@@ -18,6 +18,7 @@
 #include "syscall.h"
 #include "task.h"
 #include "timer.h"
+#include "timing.h"
 
 /** @return Non-zero when @p instruction contains an SVC opcode. */
 static inline int is_SVC_instruction(uint16_t instruction) {
@@ -76,7 +77,7 @@ void SVC_Handler_Main(PortExceptionFrame_t* frame) {
             port_request_context_switch();
             break;
         }
-        case SVC_TASK_DELAY: {
+        case SVC_TASK_DELAY_MS: {
             task_delay(frame->r0);
             break;
         }
@@ -104,8 +105,15 @@ void SVC_Handler_Main(PortExceptionFrame_t* frame) {
             }
             break;
         }
-        case SVC_TIMER_NOW: {
-            frame->r0 = timer_now();
+
+        case SVC_TIME_GET_TIMESTAMP: {
+            TinyTimestamp_t* timestamp = (TinyTimestamp_t*)frame->r0;
+            if (timestamp == NULL) {
+                frame->r0 = TINY_FAIL;
+            }
+            timestamp->cycle_count = cycle_counter;
+            timestamp->tick_us = timer_now();
+            frame->r0 = TINY_OK;
             break;
         }
         case SVC_CONSOLE_OUT: {

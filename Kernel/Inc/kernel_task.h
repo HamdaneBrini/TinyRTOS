@@ -9,6 +9,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include "config.h"
+#include "kernel_timing.h"
 #include "mpu.h"
 #include "port_mpu.h"
 #include "task.h"
@@ -42,15 +43,17 @@ struct TCB_t {
     TCB_t* prev;
     TCB_t* wakeup_next;
     TCB_t* wakeup_prev;
+    TCB_t* future_wakeup_next;
+    TCB_t* future_wakeup_prev;
     TaskStatus_t status;
     TaskStatus_t status_before_suspend;
     TaskBlockReason_t block_reason;
     uint32_t priority;
-    uint32_t wakeup_tick;
+    TimerDeadline_t wakeup_deadline;
 };
 
 /** @brief Selects which linkage fields a generic task list operates on. */
-typedef enum { TASK_READY_LINKS, TASK_WAKEUP_LINKS } TaskListLinks_t;
+typedef enum { TASK_READY_LINKS, TASK_WAKEUP_LINKS, TASK_FUTURE_WAKEUP_LINKS } TaskListLinks_t;
 
 /** @brief Ordered intrusive list of task control blocks. */
 typedef struct {
@@ -85,28 +88,43 @@ TinyStatus_t tiny_task_create(TaskHandle_t* task_handle, TaskFunc_t main_func, v
 /** @brief Reset the priority-ordered ready list. */
 TinyStatus_t task_ready_list_init(void);
 
-/** @brief Reset the deadline-ordered wakeup list. */
-TinyStatus_t task_wakeup_list_init(void);
+/** @brief Reset the deadline-ordered wakeup list for the current timer cycle. */
+TinyStatus_t active_wakeup_list_init(void);
+
+/** @brief Reset the deadline-ordered wakeup list for future timer cycles. */
+TinyStatus_t future_wakeup_list_init(void);
 
 /** @brief Insert a READY task into the ready list. */
 TinyStatus_t _insert_ready_task(TCB_t* task);
 
-/** @brief Insert a timed BLOCKED task into the wakeup list. */
-TinyStatus_t _insert_task_by_wakeup(TCB_t* task);
+/** @brief Insert a timed BLOCKED task into the current-cycle wakeup list. */
+TinyStatus_t insert_task_by_wakeup(TCB_t* task);
+
+/** @brief Insert a timed BLOCKED task into the future-cycle wakeup list. */
+TinyStatus_t insert_task_in_future_list(TCB_t* task);
 
 /** @brief Remove a READY task from the ready list. */
 TinyStatus_t _remove_ready_task(TCB_t* task);
 
-/** @brief Remove a timed BLOCKED task from the wakeup list. */
-TinyStatus_t _remove_task_from_wakeup_list(TCB_t* task);
+/** @brief Remove a timed BLOCKED task from the current-cycle wakeup list. */
+TinyStatus_t remove_task_from_wakeup_list(TCB_t* task);
+
+/** @brief Remove a timed BLOCKED task from the future-cycle wakeup list. */
+TinyStatus_t remove_task_from_future_list(TCB_t* task);
 
 /** @return Highest-priority task currently ready to run. */
 TCB_t* get_highest_priority_ready_task(void);
 
-/** @return Blocked task with the earliest wakeup deadline. */
+/** @return Blocked task with the earliest deadline in the current timer cycle. */
 TCB_t* get_earliest_wakeup_task(void);
 
-/** @return Task following @p task in the wakeup list. */
+/** @return Blocked task with the earliest absolute deadline in a future timer cycle. */
+TCB_t* get_earliest_future_task(void);
+
+/**
+ * @param task Task whose successor is requested.
+ * @return Task following @p task in the current-cycle wakeup list.
+ */
 TCB_t* get_next_wakeup_task(TCB_t* task);
 
 /** @return Number of tasks currently stored in the ready list. */
@@ -130,8 +148,8 @@ TinyStatus_t set_task_terminated(TCB_t* task);
 /** @brief Change a task priority and preserve ready-list ordering. */
 TinyStatus_t set_task_priority(TCB_t* task, uint32_t priority);
 
-/** @brief Set the absolute wakeup deadline of a blocked task. */
-TinyStatus_t set_task_wakeup_tick(TCB_t* task, uint32_t abs_tick);
+/** @brief Set the cycle and counter offset at which a blocked task should awaken. */
+TinyStatus_t set_task_wakeup_deadline(TCB_t* task, uint64_t cycle_index, uint32_t offset);
 
 /** @brief Move a task behind all ready tasks of equal priority. */
 TinyStatus_t task_move_to_priority_tail(TCB_t* task);
@@ -147,7 +165,7 @@ TinyStatus_t task_stack_mpu_config(TCB_t* task);
 TCB_t* task_lookup(TaskHandle_t task_handle);
 
 /**
- * @brief Resume a suspended task and return it to the ready list.
+ * @brief Resume a suspended task and restore its previous scheduling state.
  * @param task Task to resume.
  * @return TINY_OK on success; otherwise TINY_FAIL.
  */
@@ -156,8 +174,8 @@ TinyStatus_t resume_task(TCB_t* task);
 /** @return Read-only ready-list state for structural tests. */
 const TaskList_t* task_ready_list_get(void);
 
-/** @return Read-only wakeup-list state for structural tests. */
+/** @return Read-only current-cycle wakeup-list state for structural tests. */
 const TaskList_t* task_wakeup_list_get(void);
 #endif
 
-#endif /* TASK_H */
+#endif /* KERNEL_TASK_H */
