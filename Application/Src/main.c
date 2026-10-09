@@ -18,9 +18,12 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include <stdint.h>
+#include "config.h"
 #include "console.h"
 #include "gpio.h"
 #include "heap_allocator.h"
+#include "io_utils.h"
 #include "mpu.h"
 #include "scheduler.h"
 #include "stdout.h"
@@ -36,9 +39,15 @@
 /* Private function prototypes -----------------------------------------------*/
 static void system_clock_config(void);
 static void system_start(void);
-static void task1(void* arg);
-static void task2(void* arg);
+static void task1(void* arg) __attribute__((unused));
+static void task2(void* arg) __attribute__((unused));
 
+/** Counters proving that both equal-priority load tasks received CPU time. */
+static volatile uint32_t task2_iterations;
+static volatile uint32_t task3_iterations;
+static volatile uint32_t task4_iterations;
+static volatile uint32_t task5_iterations;
+static volatile uint32_t task6_iterations;
 /**
  * @brief Exercise task execution and shared initialized data access.
  *
@@ -46,35 +55,35 @@ static void task2(void* arg);
  */
 static void task1(void* arg) {
     (void)arg;
-    TaskHandle_t task2_handle;
 
-    if (tiny_task_create(&task2_handle, task2, NULL, 1U, 512U) != TINY_OK) {
-        tiny_print("Failed to create task 2\n");
+    /* Measure a long delay while two CPU-bound tasks of the same priority run. */
+    TinyTimestamp_t start;
+    TinyTimestamp_t end;
+    const TinyDuration_t long_delay = {.sec = 5U};
+
+    tiny_print("Equal-priority test: waiting 5 sec with 5 load tasks...\n");
+    if (tiny_get_timestamp(&start) != TINY_OK) {
+        tiny_print("Failed to read the start timestamp\n");
         return;
     }
 
-    tiny_print("Task 1: now = %u\n", tiny_tick());
-    tiny_delay(10000U);
+    tiny_long_delay(long_delay);
 
-    if (tiny_task_suspend(&task2_handle) != TINY_OK) {
-        tiny_print("Failed to suspend task 2\n");
+    if (tiny_get_timestamp(&end) != TINY_OK) {
+        tiny_print("Failed to read the end timestamp\n");
         return;
     }
 
-    tiny_print("Task 2 suspended successfully\n");
-    tiny_print("Task 1: now = %u\n", tiny_tick());
-    tiny_delay(10000U);
+    uint64_t start_us = ((uint64_t)start.cycle_count << 32) + start.tick_us;
+    uint64_t end_us = ((uint64_t)end.cycle_count << 32) + end.tick_us;
+    uint64_t elapsed_us = end_us - start_us;
+    uint32_t elapsed_sec = (uint32_t)(elapsed_us / 1000000ULL);
+    uint32_t remaining_us = (uint32_t)(elapsed_us % 1000000ULL);
 
-    if (tiny_task_resume(&task2_handle) != TINY_OK) {
-        tiny_print("Failed to resume task 2\n");
-        return;
-    }
-
-    tiny_print("Task 2 resumed successfully\n");
-    for (;;) {
-        tiny_print("Task 1: now = %u\n", tiny_tick());
-        tiny_delay(1000U);
-    }
+    tiny_print("Measured delay = %u sec, %u ms, %u us\n", elapsed_sec, remaining_us / 1000U,
+               remaining_us % 1000U);
+    tiny_print("Load counters: task 2 = %u, task 3 = %u, task 4 = %u, task 5 = %u, task 6 = %u\n", task2_iterations, task3_iterations,task4_iterations,task5_iterations,task6_iterations);
+    tiny_print(elapsed_us >= 5000000ULL ? "Equal-priority delay test: PASS\n" : "Equal-priority delay test: FAIL\n");
 }
 
 /**
@@ -83,16 +92,17 @@ static void task1(void* arg) {
  * @param arg Unused task argument.
  */
 static void task2(void* arg) {
-    (void)arg;
+    volatile uint32_t* iterations = (volatile uint32_t*)arg;
     for (;;) {
-        tiny_print("Task 2: now = %u\n", tiny_tick());
-        tiny_delay(1000U);
+        (*iterations)++;
+        tiny_delay_ms(1);
     }
 }
 
+
 /**
-  * @brief  The application entry point.
-  * @retval int
+  * @brief Application entry point.
+  * @return This function does not return during normal firmware execution.
   */
 int main(void) {
     system_start();
@@ -100,10 +110,28 @@ int main(void) {
 #ifdef UNIT_TEST
     Test_start();
 #else
-    /* Start user tasks */
+    /* Establish kernel memory protection before creating unprivileged tasks. */
+    if (MPU_kernel_config() != TINY_OK) {
+        Error_Handler();
+    }
+    if (scheduler_init() != TINY_OK) {
+        Error_Handler();
+    }
+    print("-----Scheduler initialized------\n");
+    /* All three tasks use the same priority to exercise round-robin scheduling. */
     TaskHandle_t task1_handle;
+    TaskHandle_t task2_handle;
+    TaskHandle_t task3_handle;
+    TaskHandle_t task4_handle;
+    TaskHandle_t task5_handle;
+    TaskHandle_t task6_handle;
 
-    if (tiny_task_create(&task1_handle, task1, NULL, 3U, 512U) != TINY_OK) {
+    if (tiny_task_create(&task1_handle, task1, NULL, 3U, 512U) != TINY_OK ||
+         tiny_task_create(&task2_handle, task2, (void*)&task2_iterations, 3U, 512U) != TINY_OK
+        || tiny_task_create(&task3_handle, task2, (void*)&task3_iterations, 3U, 512U) != TINY_OK
+        || tiny_task_create(&task4_handle, task2, (void*)&task4_iterations, 3U, 512U) != TINY_OK
+        || tiny_task_create(&task5_handle, task2, (void*)&task5_iterations, 3U, 512U) != TINY_OK
+        || tiny_task_create(&task6_handle, task2, (void*)&task6_iterations, 3U, 512U) != TINY_OK) {
         Error_Handler();
     }
 
@@ -121,38 +149,33 @@ int main(void) {
 static void system_start(void) {
     /* MCU Configuration--------------------------------------------------------*/
 
-    /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+    /* Reset peripherals and initialize the Flash interface and SysTick. */
     HAL_Init();
 
     /* Configure the system clock */
     system_clock_config();
+    /* Route configurable bus errors to BusFault instead of escalating them to HardFault. */
     SCB->SHCSR |= SCB_SHCSR_BUSFAULTENA_Msk;
     __DSB();
     __ISB();
 
-    /* Initialize all configured peripherals */
-    gpio_init();
-    uart_init();
-    timer_init();
+    /* Initialize all configured peripherals. */
+    if (timer_init() != TINY_OK || uart_init() != TINY_OK || gpio_init() != TINY_OK) {
+        Error_Handler();
+    }
 
     /* Initialize services */
+
+    if (kernel_heap_init() != TINY_OK) {
+        Error_Handler();
+    }
     console_init();
+    print("Heaps initialized\n");
     print("Console initialized\n");
-    kernel_heap_init();
-    print("Heap initialized\n");
-    /* Restrict the dedicated kernel SRAM to privileged accesses. */
-    if (MPU_kernel_config() != TINY_OK) {
-        Error_Handler();
-    }
-    if (scheduler_init() != TINY_OK) {
-        Error_Handler();
-    }
-    print("Scheduler initialized\n");
 }
 
 /**
-  * @brief System Clock Configuration
-  * @retval None
+  * @brief Configure the system clock tree and flash programming delay.
   */
 static void system_clock_config(void) {
     RCC_OscInitTypeDef RCC_OscInitStruct = {0};
@@ -196,8 +219,7 @@ static void system_clock_config(void) {
 }
 
 /**
-  * @brief  This function is executed in case of error occurrence.
-  * @retval None
+  * @brief Disable interrupts and stop execution after a fatal initialization error.
   */
 void Error_Handler(void) {
     /* USER CODE BEGIN Error_Handler_Debug */
