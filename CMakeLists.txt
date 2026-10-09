@@ -80,6 +80,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Kernel/API/Src/timing_sys.c
     Kernel/API/Src/memory_sys.c
     Kernel/API/Src/stdout_sys.c
+    Utils/Src/ring_buffer.c
 
 )
 
