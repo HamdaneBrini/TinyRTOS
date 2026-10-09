@@ -185,7 +185,7 @@ static void verify_task_delay_with_overflow(void) {
     uint32_t start_offset = timer_now();
     uint32_t start_cycle = cycle_counter;
 
-    tiny_delay(OVERFLOW_TEST_DELAY_MS);
+    tiny_delay_ms(OVERFLOW_TEST_DELAY_MS);
 
     uint32_t elapsed_us = timer_now() - start_offset;
     uint32_t elapsed_cycles = cycle_counter - start_cycle;

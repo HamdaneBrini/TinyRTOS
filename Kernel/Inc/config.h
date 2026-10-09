@@ -18,7 +18,7 @@
 #if TIMER_IRQ_PRIORITY >= SVC_EXCEPTION_PRIORITY || SVC_EXCEPTION_PRIORITY >= UART_IRQ_PRIORITY \
     || UART_IRQ_PRIORITY >= PENDSV_EXCEPTION_PRIORITY
 #error "Interrupt priorities must satisfy TIMER > SVC > UART > PendSV"
-#endif /* CONFIG_H */
+#endif
 
 /** @brief Status returned by TinyRTOS operations. */
 typedef enum {
@@ -27,4 +27,4 @@ typedef enum {
 
 } TinyStatus_t;
 
-#endif
+#endif /* CONFIG_H */
