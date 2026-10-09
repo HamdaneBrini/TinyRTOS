@@ -7,7 +7,6 @@
 #define TIMING_H
 
 #include <stdint.h>
-
 #include "config.h"
 
 /** @brief Time since scheduler startup split into human-readable units. */
@@ -33,15 +32,23 @@ typedef struct {
     uint8_t min;   /**< Remaining minutes, in the range 0-59. */
     uint8_t sec;   /**< Remaining seconds, in the range 0-59. */
     uint16_t ms;   /**< Remaining milliseconds, in the range 0-999. */
-    uint16_t us;   /**< Remaining microseconds, in the range 0-999. */
 } TinyDuration_t;
 
 /**
  * @brief Delay the calling task.
  * @param duration_ms Delay duration in milliseconds.
  */
-void tiny_delay(uint32_t duration_ms);
+void tiny_delay_ms(uint32_t duration_ms);
 
+/**
+ * @brief Delay the calling task for a decomposed duration.
+ *
+ * The duration components must use their canonical ranges: hours 0-23,
+ * minutes and seconds 0-59, and milliseconds 0-999.
+ *
+ * @param duration Duration for which the task remains blocked.
+ */
+void tiny_long_delay(TinyDuration_t duration);
 /**
  * @brief Read an atomic snapshot of the system timer.
  * @param timestamp Destination for the overflow-cycle count and counter offset.
@@ -61,5 +68,41 @@ uint32_t tiny_get_tick(void);
  * @return TINY_OK on success, or TINY_FAIL when the uptime cannot be read.
  */
 TinyStatus_t tiny_get_uptime(TinyUptime_t* uptime);
+
+/**
+ * @brief Add two normalized uptime values.
+ * @param t1 First operand.
+ * @param t2 Second operand.
+ * @param result Destination for the normalized sum.
+ * @return TINY_OK on success, or TINY_FAIL for invalid input, a NULL destination, or day overflow.
+ */
+TinyStatus_t tiny_add_uptime(TinyUptime_t t1, TinyUptime_t t2, TinyUptime_t* result);
+
+/**
+ * @brief Subtract two normalized uptime values, saturating at zero.
+ * @param t1 Minuend.
+ * @param t2 Subtrahend.
+ * @param result Destination for the normalized difference.
+ * @return TINY_OK on success, or TINY_FAIL for invalid input or a NULL destination.
+ */
+TinyStatus_t tiny_subtract_uptime(TinyUptime_t t1, TinyUptime_t t2, TinyUptime_t* result);
+
+/**
+ * @brief Add two normalized duration values.
+ * @param d1 First operand.
+ * @param d2 Second operand.
+ * @param result Destination for the normalized sum.
+ * @return TINY_OK on success, or TINY_FAIL for invalid input, a NULL destination, or day overflow.
+ */
+TinyStatus_t tiny_add_duration(TinyDuration_t d1, TinyDuration_t d2, TinyDuration_t* result);
+
+/**
+ * @brief Subtract two normalized duration values, saturating at zero.
+ * @param d1 Minuend.
+ * @param d2 Subtrahend.
+ * @param result Destination for the normalized difference.
+ * @return TINY_OK on success, or TINY_FAIL for invalid input or a NULL destination.
+ */
+TinyStatus_t tiny_subtract_duration(TinyDuration_t d1, TinyDuration_t d2, TinyDuration_t* result);
 
 #endif /* TIMING_H */

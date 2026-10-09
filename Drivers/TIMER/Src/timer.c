@@ -15,6 +15,19 @@
 /** HAL state for the TIM2 scheduler timer. */
 TIM_HandleTypeDef htim2;
 
+/*
+ * Delay used only to recover from a requested compare that has already passed.
+ * A valid future deadline is always programmed unchanged.
+ */
+#define TIMER_RECOVERY_DELAY_TICKS 10U
+
+/** Return nonzero when @p deadline is ahead of @p now within the unambiguous half-range. */
+static int _deadline_is_ahead(uint32_t deadline, uint32_t now) {
+    uint32_t ticks_until_deadline = deadline - now;
+
+    return ticks_until_deadline != 0U && ticks_until_deadline <= (UINT32_MAX / 2U);
+}
+
 /**
  * @brief Return the effective TIM2 input-clock frequency.
  *
@@ -68,7 +81,7 @@ TinyStatus_t timer_init(void) {
     }
 
     /* Configure the interrupt used for compare deadlines and counter overflow. */
-    HAL_NVIC_SetPriority(TIM2_IRQn, 5, 0);
+    HAL_NVIC_SetPriority(TIM2_IRQn, TIMER_IRQ_PRIORITY, 0U);
     HAL_NVIC_EnableIRQ(TIM2_IRQn);
     return TINY_OK;
 }
@@ -98,13 +111,23 @@ TinyStatus_t timer_deinit(void) {
 
     return TINY_OK;
 }
-
-/** @copydoc timer_now */
+/**
+ * @brief Check whether a TIM2 counter overflow is pending.
+ * @return Nonzero when the update flag is set.
+ */
+int timer_overflow_pending(void)
+{
+    return __HAL_TIM_GET_FLAG(&htim2, TIM_FLAG_UPDATE) != RESET;
+}
+/** @brief Read the current TIM2 counter value in microseconds. */
 uint32_t timer_now(void) { return __HAL_TIM_GET_COUNTER(&htim2); }
 
 #ifdef UNIT_TEST
 /** @copydoc timer_test_set_counter */
 void timer_test_set_counter(uint32_t value) { __HAL_TIM_SET_COUNTER(&htim2, value); }
+
+/** @copydoc timer_test_get_deadline */
+uint32_t timer_test_get_deadline(void) { return __HAL_TIM_GET_COMPARE(&htim2, TIM_CHANNEL_1); }
 #endif
 
 /** @copydoc timer_start */
@@ -126,13 +149,38 @@ void timer_start(uint32_t first_deadline) {
 /** @copydoc timer_set_deadline */
 void timer_set_deadline(uint32_t deadline) {
     /*
-     * timer_cancel_deadline() masks CC1, so every newly programmed deadline
-     * must arm the compare interrupt again. Clear a stale match before
-     * updating CCR1 to avoid servicing a cancelled deadline.
+     * The caller may have selected the deadline from a time snapshot that is
+     * already a few microseconds old. Never clear a pending match and then
+     * write the same, now-past value to CCR1: TIM2 would not match it again
+     * until the 32-bit counter wraps.
+     *
+     * Preserve the requested logical deadline whenever it is still ahead.
+     * Otherwise arm a short recovery compare after the current counter value;
+     * the scheduler callback will process the expired logical deadline. The
+     * post-write check also closes the race while CCR1 is being updated.
      */
     __HAL_TIM_DISABLE_IT(&htim2, TIM_IT_CC1);
-    __HAL_TIM_CLEAR_FLAG(&htim2, TIM_FLAG_CC1);
-    __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, deadline);
+
+    for (;;) {
+        uint32_t now = timer_now();
+        uint32_t armed_deadline = deadline;
+
+        if (!_deadline_is_ahead(armed_deadline, now)) {
+            armed_deadline = now + TIMER_RECOVERY_DELAY_TICKS;
+        }
+
+        __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, armed_deadline);
+        __DSB();
+
+        /* Clear the old match only after CCR1 contains its replacement. */
+        __HAL_TIM_CLEAR_FLAG(&htim2, TIM_FLAG_CC1);
+        __DSB();
+
+        if (_deadline_is_ahead(armed_deadline, timer_now())) {
+            break;
+        }
+    }
+
     __HAL_TIM_ENABLE_IT(&htim2, TIM_IT_CC1);
 }
 
@@ -142,14 +190,20 @@ void timer_cancel_deadline(void) {
     __HAL_TIM_CLEAR_FLAG(&htim2, TIM_FLAG_CC1);
 }
 
-/** Forward a TIM2 Channel 1 compare event to the scheduler hook. */
+/**
+ * @brief Forward a TIM2 Channel 1 compare event to the scheduler hook.
+ * @param htim HAL timer handle reporting the completed output-compare event.
+ */
 void HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef* htim) {
     if (htim->Instance == TIM2 && htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1) {
         timer_event();
     }
 }
 
-/** Forward a TIM2 counter-overflow event to the scheduler hook. */
+/**
+ * @brief Forward a TIM2 counter-overflow event to the scheduler hook.
+ * @param htim HAL timer handle reporting the update event.
+ */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim) {
     if (htim->Instance == TIM2) {
         timer_overflow_event();

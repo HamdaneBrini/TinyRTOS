@@ -16,9 +16,17 @@ typedef struct {
 
 /**
  * @brief Block the current task for a duration.
- * @param duration_ms Delay duration in milliseconds.
+ * @param duration_us Delay duration in microseconds.
  */
-void task_delay(uint32_t duration_ms);
+void task_delay_us(uint64_t duration_us);
+
+/**
+ * @brief Add a duration to an absolute timer deadline.
+ * @param deadline Starting absolute deadline.
+ * @param duration_us Duration to add, in microseconds.
+ * @return Normalized deadline with 32-bit counter wrap propagated to the cycle index.
+ */
+TimerDeadline_t timer_deadline_add(TimerDeadline_t deadline, uint64_t duration_us);
 
 /**
  * @brief Test whether an absolute timer deadline has been reached.

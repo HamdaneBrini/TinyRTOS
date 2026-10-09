@@ -3,30 +3,25 @@
  * @file scheduler.c
  * @brief Priority scheduling, time slicing, and timer-deadline processing.
  */
-#include "scheduler.h"
+#include <stdbool.h>
 #include <stdint.h>
-#include <sys/_types.h>
-#include <sys/types.h>
+
 #include "cmsis_gcc.h"
 #include "config.h"
-#include "console.h"
-#include "io_utils.h"
 #include "kernel_task.h"
 #include "kernel_timing.h"
 #include "port.h"
 #include "port_context.h"
 #include "port_syscall.h"
+#include "scheduler.h"
 #include "stm32h5xx.h"
 #include "syscall.h"
 #include "timer.h"
 
-/** Maximum uninterrupted task execution time in microseconds. */
-#define TASK_TIME_SLICE 1000 /* 1ms */
-
 /* Scheduler state is placed in privileged kernel RAM by the linker script. */
 __attribute__((section(".kernel_bss"))) TCB_t* current_task;
 __attribute__((section(".kernel_bss"))) TimerDeadline_t timeslice_end;
-__attribute__((section(".kernel_bss"))) _IO uint32_t cycle_counter;
+__attribute__((section(".kernel_user_shared"))) volatile uint32_t cycle_counter = 0;
 
 /**
  * @brief Initialize scheduler-owned state.
@@ -34,7 +29,8 @@ __attribute__((section(".kernel_bss"))) _IO uint32_t cycle_counter;
  * @return TINY_OK on success, or TINY_FAIL if task-system initialization fails.
  */
 TinyStatus_t scheduler_init(void) {
-    NVIC_SetPriority(PendSV_IRQn, (1UL << __NVIC_PRIO_BITS) - 1UL);
+    NVIC_SetPriority(SVCall_IRQn, SVC_EXCEPTION_PRIORITY);
+    NVIC_SetPriority(PendSV_IRQn, PENDSV_EXCEPTION_PRIORITY);
     current_task = NULL;
     timeslice_end = (TimerDeadline_t){0};
     cycle_counter = 0U;
@@ -59,6 +55,7 @@ TinyStatus_t scheduler_start(void) {
     set_task_running(current_task);
     timeslice_end = (TimerDeadline_t){.cycle_index = 0U, .offset = TASK_TIME_SLICE};
     timer_start(timeslice_end.offset);
+
     critical_exit(critical_state);
     return TINY_OK;
 }
@@ -133,8 +130,9 @@ uint32_t* scheduler_context_switch(uint32_t* saved_sp) {
  * chooses the earlier of the next wakeup and time-slice deadlines.
  */
 void timer_event(void) {
-    TimerDeadline_t now = {.cycle_index = cycle_counter, .offset = timer_now()};
     CriticalState_t critical_state = critical_enter();
+    TimerDeadline_t now = {.cycle_index = cycle_counter, .offset = timer_now()};
+
     /* Wake every expired task. */
     TCB_t* task;
     while ((task = get_earliest_wakeup_task()) != NULL && timer_deadline_reached(&task->wakeup_deadline, &now)) {
@@ -142,41 +140,48 @@ void timer_event(void) {
             break;
         }
     }
-
-    TimerDeadline_t next_deadline = {0};
-    int deadline_available = 0;
-
+    bool timeslice_expired = timer_deadline_reached(&timeslice_end, &now);
     /*
      * Schedule another time slice only when another task is ready.
      * The currently running task is not part of the ready list.
      */
-    if (task_ready_count() > 0U) {
-        if (timer_deadline_reached(&timeslice_end, &now)) {
-            uint64_t relative_deadline = (uint64_t)now.offset + TASK_TIME_SLICE;
-            timeslice_end.cycle_index = now.cycle_index + (relative_deadline >> 32);
-            timeslice_end.offset = (uint32_t)relative_deadline;
-        }
 
-        next_deadline = timeslice_end;
-        deadline_available = 1;
+    /*switch required if:
+        - current task isn't RUNNING
+        - current task is RUNNING && current_task's priority <= highest priority task in the current ready list
+     */
+    TCB_t* highest_priority_task = get_highest_priority_ready_task();
+    bool switch_required = false;
+    if (highest_priority_task != NULL) {
+        switch_required = (current_task->status != RUNNING)
+                          || ((current_task->status == RUNNING)
+                              && ((current_task->priority < highest_priority_task->priority)
+                                  || (current_task->priority == highest_priority_task->priority && timeslice_expired)));
     }
+
+    if (timeslice_expired) {
+        /* Advance from the previous boundary, preserving the scheduler's
+         * time-slice phase. Catch up when more than one slot has elapsed. */
+        do {
+            timeslice_end = timer_deadline_add(timeslice_end, TASK_TIME_SLICE);
+        } while (timer_deadline_reached(&timeslice_end, &now));
+    }
+
+    TimerDeadline_t next_deadline = timeslice_end;
 
     /* A blocked task may need to wake before the next time slice. */
     task = get_earliest_wakeup_task();
 
-    if (task != NULL && (!deadline_available || deadline_before(&task->wakeup_deadline, &next_deadline))) {
+    if (task != NULL && deadline_before(&task->wakeup_deadline, &next_deadline)) {
         next_deadline = task->wakeup_deadline;
-        deadline_available = 1;
     }
 
-    if (deadline_available) {
-        timer_set_deadline(next_deadline.offset);
+    timer_set_deadline(next_deadline.offset);
 
-    } else {
-        timer_cancel_deadline();
+    if (switch_required) {
+        port_request_context_switch();
     }
 
-    port_request_context_switch();
     critical_exit(critical_state);
 }
 

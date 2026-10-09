@@ -11,6 +11,9 @@
 #include "config.h"
 #include "kernel_task.h"
 
+/** Maximum uninterrupted task execution time in microseconds. */
+#define TASK_TIME_SLICE 1000U /* 1ms */
+
 /** Task currently executing, or NULL before the scheduler starts. */
 extern TCB_t* current_task;
 

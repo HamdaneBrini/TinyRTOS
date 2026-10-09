@@ -48,12 +48,21 @@ void timer_event(void);
 /** @brief Scheduler hook invoked when the 32-bit TIM2 counter overflows. */
 void timer_overflow_event(void);
 
+/**
+ * @brief Check whether a TIM2 counter overflow is pending.
+ * @return Nonzero when the update flag is set.
+ */
+int timer_overflow_pending(void);
+
 #ifdef UNIT_TEST
 /**
  * @brief Set TIM2's counter directly for on-target timing tests.
  * @param value Counter value to write.
  */
 void timer_test_set_counter(uint32_t value);
+
+/** @return Counter value currently programmed in TIM2 CCR1. */
+uint32_t timer_test_get_deadline(void);
 #endif
 
 #endif /* TIMER_H */
