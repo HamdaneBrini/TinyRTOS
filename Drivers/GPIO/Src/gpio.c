@@ -1,6 +1,6 @@
 /**
  * @file gpio.c
- * @brief GPIO configuration for USART2 and board-level debug connectivity.
+ * @brief GPIO configuration for the USART2 console.
  */
 
 #include "gpio.h"
