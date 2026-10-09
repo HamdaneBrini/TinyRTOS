@@ -39,9 +39,11 @@ ENTRY(Reset_Handler)
 _estack = ORIGIN(KERNEL_RAM) + LENGTH(KERNEL_RAM);
 
 /* Minimum space reserved for the application heap and stacks. */
-_Min_Heap_Size         = 0x200;
-_Min_Stack_Size        = 0x8000;
-_Min_kernel_Stack_Size = 0x400;
+_Min_Heap_Size         = 2K;
+_Min_Stack_Size        = 32768;
+_Min_kernel_Stack_Size = 1K;
+_Min_kernel_Heap_Size = 2K;
+_kernel_user_shared_size = 32;
 /*
  * Memory map:
  *   - RAM holds application data, BSS, heap, and user stack reservations.
@@ -218,7 +220,17 @@ SECTIONS
    
 
   } >KERNEL_RAM AT>FLASH
+  .kernel_user_shared :
+  {
+    . = ALIGN(32); /* MPU region require 32 aligment */
+    _sKernel_user_shared = .;
+     KEEP(*(.kernel_user_shared))
+    . = ALIGN(32);
+    _eKernel_user_shared = .;
+  }>KERNEL_RAM AT>FLASH
 
+  ASSERT( SIZEOF(.kernel_user_shared)<= _kernel_user_shared_size ,
+   "kernel_user_shared region overflow")
   /* Zero-initialized kernel data. */
   .kernel_bss :
   {
@@ -230,14 +242,24 @@ SECTIONS
     _ekernel_bss = .;
   } >KERNEL_RAM
 
-  /* Reserve the kernel stack at the end of the kernel bss region. */
-  _kernel_stack_bottom = ORIGIN(KERNEL_RAM) + LENGTH(KERNEL_RAM) - _Min_kernel_Stack_Size;
+  .kernel_heap :
+  {
+    . = ALIGN(8);
+    PROVIDE(_skernel_heap = .);
+    . = . + _Min_kernel_Heap_Size;
+    . = ALIGN(8);
+    PROVIDE(_ekernel_heap = .);
+
+  }>KERNEL_RAM
+
+  /* Reserve the kernel stack at the end of the kernel heap region. */
+  _kernel_stack_bottom = _estack - _Min_kernel_Stack_Size;
 
   PROVIDE(_skernel_stack = _kernel_stack_bottom);
   PROVIDE(_ekernel_stack = _estack);
 
   ASSERT(
-      _ekernel_bss <= _kernel_stack_bottom,
+      _ekernel_heap <= _kernel_stack_bottom,
       "Kernel RAM overflow: kernel data overlaps MSP stack")
 
   /* Kernel data load address and byte count consumed by startup code. */

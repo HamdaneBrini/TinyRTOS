@@ -25,7 +25,9 @@ size_t get_Min_Stack_Size(void);
 /**
  * @brief Initialize the task stack allocator.
  *
- * This function must be called before the first call to tiny_stack_malloc().
+ * This function must be called before the first call to stack_malloc().
+ *
+ * @return TINY_OK after the linker-reserved stack region is initialized.
  */
 TinyStatus_t stack_allocator_init(void);
 
@@ -41,7 +43,8 @@ void* stack_malloc(size_t size);
 /**
  * @brief Return task stack memory to the allocator.
  *
- * @param ptr Pointer previously returned by tiny_stack_malloc().
+ * @param ptr Pointer previously returned by stack_malloc().
+ * @return TINY_OK on success, or TINY_FAIL when the allocator is unavailable or @p ptr is NULL.
  */
 TinyStatus_t stack_free(void* ptr);
 

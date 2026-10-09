@@ -50,7 +50,8 @@ void* stack_malloc(size_t size) { return memory_allocator_alloc(size, &task_stac
 /**
  * @brief Return task stack memory to the allocator.
  *
- * @param ptr Pointer previously returned by tiny_stack_malloc(); NULL is
+ * @param ptr Pointer previously returned by stack_malloc(); NULL is
  *            accepted.
+ * @return TINY_OK on success, or TINY_FAIL when the pointer cannot be released.
  */
 TinyStatus_t stack_free(void* ptr) { return memory_allocator_free(ptr, &task_stack); }

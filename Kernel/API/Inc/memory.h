@@ -11,14 +11,14 @@
 #include "config.h"
 
 /**
- * @brief Allocate memory from the kernel heap.
+ * @brief Allocate memory from the user heap through the privileged allocator.
  * @param size Number of bytes requested.
  * @return Pointer to the allocated memory, or NULL if allocation fails.
  */
 void* tiny_malloc(size_t size);
 
 /**
- * @brief Return a previously allocated block to the kernel heap.
+ * @brief Return a previously allocated block to the user heap.
  * @param ptr Pointer returned by tiny_malloc().
  * @return Status returned by the memory-free system call.
  */
