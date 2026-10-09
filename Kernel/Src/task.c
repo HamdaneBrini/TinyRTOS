@@ -673,7 +673,7 @@ TinyStatus_t task_stack_mpu_config(TCB_t* task) {
     uint32_t base_address = task->stack_region.base;
     uint32_t limit_address = base_address + (uint32_t)task->stack_region.size - 1U;
 
-    return port_MPU_config(base_address, limit_address, task->stack_region.access_permission, 0,
+    return port_MPU_config(base_address, limit_address, task->stack_region.access_permission,MEMORY_TYPE_NORMAL, 0,
                            MEMORY_REGION_NUMEBER_1);
 }
 

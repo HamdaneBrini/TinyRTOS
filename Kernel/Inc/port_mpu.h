@@ -22,6 +22,12 @@ typedef enum {
     MEMORY_READ_WRITE_PV,
 } MemoryAccess_t;
 
+/** @brief Memory attribute classes supported by the Cortex-M33 port. */
+typedef enum {
+    MEMORY_TYPE_NORMAL, /**< Normal, non-cacheable memory. */
+    MEMORY_TYPE_DEVICE, /**< Strongly ordered device memory. */
+} MemoryType_t;
+
 /** @brief MPU region numbers available to the kernel. */
 typedef enum {
     MEMORY_REGION_NUMEBER_0,
@@ -39,11 +45,13 @@ typedef enum {
  * @param base_address Inclusive region base address.
  * @param limit_address Inclusive region limit address.
  * @param access Region access permissions.
+ * @param memory_type Normal-memory or device-memory attributes.
  * @param is_executable Non-zero to permit instruction execution.
  * @param region_number MPU region slot to configure.
- * @return TINY_OK after the region is configured.
+ * @return TINY_OK after configuration, or TINY_FAIL for unsupported attributes.
  */
-TinyStatus_t port_MPU_config(uint32_t base_address, uint32_t limit_address, MemoryAccess_t access, int is_executable,
-                             MemoryRegionNumber_t region_number);
+
+TinyStatus_t port_MPU_config(uint32_t base_address, uint32_t limit_address, MemoryAccess_t access,
+                             MemoryType_t memory_type, int is_executable, MemoryRegionNumber_t region_number);
 
 #endif /* PORT_MPU_H */
