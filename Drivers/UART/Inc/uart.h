@@ -1,6 +1,6 @@
 /**
  * @file uart.h
- * @brief Public interface for blocking UART communication.
+ * @brief Public interface for interrupt-driven transmission and blocking reception over USART2.
  */
 
 #ifndef UART_H
@@ -18,18 +18,25 @@ TinyStatus_t uart_init(void);
 /**
  * @brief Transmit bytes through USART2.
  *
+ * The descriptor is queued and transmission proceeds asynchronously. The data
+ * is not copied, so @p pData must remain valid until the transmission-complete
+ * callback runs. The current console backend transfers ownership of a buffer
+ * allocated from @ref kernel_heap to this function.
+ *
  * @param pData Pointer to the data to transmit.
- * @param Size Number of bytes to transmit.
+ * @param size Number of bytes to transmit.
  */
-void uart_write(const uint8_t* pData, uint16_t Size);
+void uart_write(const uint8_t* pData, uint16_t size);
 
 /**
  * @brief Receive bytes through USART2.
  *
+ * Reception is blocking until all requested bytes arrive or @p timeout expires.
+ *
  * @param pData Pointer to the destination buffer.
- * @param Size Number of bytes to receive.
- * @param Timeout Maximum receive duration in milliseconds.
+ * @param size Number of bytes to receive.
+ * @param timeout Maximum receive duration in milliseconds.
  */
-void uart_read(uint8_t* pData, uint16_t Size, uint32_t Timeout);
+void uart_read(uint8_t* pData, uint16_t size, uint32_t timeout);
 
 #endif /* UART_H */

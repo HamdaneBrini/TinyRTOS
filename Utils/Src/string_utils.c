@@ -4,7 +4,35 @@
  */
 
 #include <stddef.h>
-#include <stdint.h>
+
+#include "string_utils.h"
+
+/** Return the magnitude of a signed integer without overflowing for INT_MIN. */
+static unsigned int _int_magnitude(int value) { return value < 0 ? 0U - (unsigned int)value : (unsigned int)value; }
+
+/** @copydoc uint_to_string_len */
+size_t uint_to_string_len(unsigned int value) {
+    size_t length = 1U;
+
+    while (value >= 10U) {
+        value /= 10U;
+        length++;
+    }
+
+    return length;
+}
+
+/** @copydoc uint_to_string */
+size_t uint_to_string(unsigned int value, char* buffer) {
+    size_t length = uint_to_string_len(value);
+
+    for (size_t index = length; index > 0U; index--) {
+        buffer[index - 1U] = (char)('0' + (value % 10U));
+        value /= 10U;
+    }
+
+    return length;
+}
 
 /**
  * @brief Convert a signed integer to its decimal character representation.
@@ -18,34 +46,16 @@
  * @return Number of characters written to @p buffer.
  */
 size_t int_to_string(int value, char* buffer) {
-    char temp[12];
-    size_t i = 0;
-    size_t j = 0;
-
-    if (value == 0) {
-        buffer[0] = '0';
-        return 1;
-    }
-
-    int negative = 0;
-
+    size_t offset = 0U;
     if (value < 0) {
-        negative = 1;
-        value = -value;
+        buffer[offset++] = '-';
     }
 
-    while (value > 0) {
-        temp[i++] = '0' + (value % 10); /* Convert the next decimal digit to a character. */
-        value /= 10;
-    }
+    return offset + uint_to_string(_int_magnitude(value), &buffer[offset]);
+}
 
-    if (negative) {
-        buffer[j++] = '-';
-    }
-
-    while (i > 0) {
-        buffer[j++] = temp[--i];
-    }
-
-    return j;
+/** @copydoc int_to_string_len */
+size_t int_to_string_len(int value) {
+    size_t sign_length = value < 0 ? 1U : 0U;
+    return sign_length + uint_to_string_len(_int_magnitude(value));
 }
