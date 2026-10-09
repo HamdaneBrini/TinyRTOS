@@ -13,14 +13,14 @@
 
 /** @brief Basic exception frame automatically stacked by Cortex-M33 hardware. */
 typedef struct {
-    uint32_t r0;
-    uint32_t r1;
-    uint32_t r2;
-    uint32_t r3;
-    uint32_t r12;
-    uint32_t lr;
-    uint32_t pc;
-    uint32_t xpsr;
+    uint32_t r0;   /**< Stacked R0 argument/result register. */
+    uint32_t r1;   /**< Stacked R1 argument register. */
+    uint32_t r2;   /**< Stacked R2 argument register. */
+    uint32_t r3;   /**< Stacked R3 argument register. */
+    uint32_t r12;  /**< Stacked intra-procedure-call scratch register. */
+    uint32_t lr;   /**< Stacked link register. */
+    uint32_t pc;   /**< Stacked program counter. */
+    uint32_t xpsr; /**< Stacked program-status register. */
 } PortExceptionFrame_t;
 
 

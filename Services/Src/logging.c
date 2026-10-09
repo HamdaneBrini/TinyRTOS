@@ -14,13 +14,13 @@
  * The caller owns @p args and remains responsible for calling va_end().
  *
  * @param level Null-terminated level label.
- * @param format Null-terminated format string accepted by tiny_vprint().
+ * @param format Null-terminated format string accepted by vprint().
  * @param args Arguments corresponding to the conversions in @p format.
  */
 static void _tiny_vlog(const char* level, const char* format, va_list args) {
-    tinyprint("[%s]: ", level);
-    tiny_vprint(format, args);
-    tinyprint("\n");
+    print("[%s]: ", level);
+    vprint(format, args);
+    print("\n");
 }
 
 /** @brief Write an informational formatted log message. */

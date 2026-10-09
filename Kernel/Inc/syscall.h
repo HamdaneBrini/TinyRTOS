@@ -21,20 +21,28 @@
 +----------------+----------------+
 
 */
-#define SVC_INST_ENCOGING     0xDF00U
+/** @brief Fixed high byte of a Thumb SVC instruction. */
+#define SVC_INST_ENCOGING 0xDF00U
+/** @brief Mask selecting the SVC opcode byte. */
 #define SVC_INST_ENCODING_MSK 0xFF00U
-#define SVC_NUMBER_MSK        0x00FFU
+/** @brief Mask selecting the immediate system-call number. */
+#define SVC_NUMBER_MSK 0x00FFU
 
+/** @brief SVC identifiers exposed by the TinyRTOS system-call boundary. */
 typedef enum {
     SVC_TASK_CREATE = 0,
     SVC_SCHEDULER_START,
-    SVC_TASK_DELAY,
+    SVC_TASK_DELAY_US,
     SVC_TASK_YIELD,
     SVC_TASK_EXIT,
     SVC_TASK_SUSPEND,
     SVC_TASK_RESUME,
     SVC_TASK_SET_PRIORITY,
-    SVC_CONSOLE_OUT
+    SVC_CONSOLE_OUT,
+    SVC_TIME_GET_TIMESTAMP,
+    SVC_MEMORY_ALLOC,
+    SVC_MEMORY_FREE,
+
 } SVC_Number_t;
 
 /**

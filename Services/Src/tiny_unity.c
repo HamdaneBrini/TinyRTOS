@@ -33,38 +33,39 @@ int tiny_assert(int condition, const char* message, const char* file, uint32_t l
     }
 
     test_status.current_test_failed = 1U;
-    tinyprint("  %s:%u: assertion failed in %s\n", file, line, test_name);
-    tinyprint("    %s\n", message);
+    print("  %s:%u: assertion failed in %s\n", file, line, test_name);
+    print("    %s\n", message);
     return 0;
 }
 
+/** @copydoc tiny_test_begin */
 void tiny_test_begin(void) {
     test_status.failed_count = 0;
     test_status.test_count = 0;
     test_status.current_test_failed = 0;
 }
 
+/** @copydoc tiny_test_result */
 void tiny_test_result(const char* test_name) {
     test_status.test_count++;
     if (test_status.current_test_failed != 0U) {
         test_status.failed_count++;
-        tinyprint("%s: FAIL\n", test_name);
+        print("%s: FAIL\n", test_name);
     } else {
-        tinyprint("%s: PASS\n", test_name);
+        print("%s: PASS\n", test_name);
     }
     test_status.current_test_failed = 0U;
 }
 
+/** @copydoc tiny_test_end */
 void tiny_test_end(void) {
-    tinyprint("\n-----------------------\n");
-    tinyprint("%u Tests %u Failures\n", test_status.test_count, test_status.failed_count);
-    tinyprint(test_status.failed_count == 0U ? "OK\n" : "FAIL\n");
+    print("\n-----------------------\n");
+    print("%u Tests %u Failures\n", test_status.test_count, test_status.failed_count);
+    print(test_status.failed_count == 0U ? "OK\n" : "FAIL\n");
 
     __disable_irq();
-    /** Avoid causing a HardFault when no debugger is connected. */
-    if ((CoreDebug->DHCSR & CoreDebug_DHCSR_C_DEBUGEN_Msk) != 0U) {
-        __BKPT(0);
-    }
+    /* Remain in a low-power halt; an unconditional BKPT would fault when no
+     * debugger is attached. */
     while (1) {
         __WFI();
     }

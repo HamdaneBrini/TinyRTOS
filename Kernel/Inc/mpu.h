@@ -11,7 +11,10 @@
 #include "config.h"
 
 
-/** @return TINY_OK when all linker-defined kernel regions are configured. */
+/**
+ * @brief Configure MPU regions for privileged kernel RAM, executable flash, user data, and the user heap.
+ * @return TINY_OK when every linker-defined region is configured, otherwise TINY_FAIL.
+ */
 TinyStatus_t MPU_kernel_config(void);
 
 #endif /* MPU_H */

@@ -15,9 +15,10 @@ typedef uint32_t CriticalState_t;
 /** @return PRIMASK value that was active before interrupts were disabled. */
 CriticalState_t critical_enter(void);
 
-/** @param state PRIMASK value returned by critical_enter(). */
+/**
+ * @brief Restore the interrupt-mask state saved on critical-section entry.
+ * @param state PRIMASK value returned by critical_enter().
+ */
 void critical_exit(CriticalState_t state);
-
-
 
 #endif /* PORT_H */

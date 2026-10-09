@@ -9,33 +9,39 @@
 #include "cmsis_gcc.h"
 #include "config.h"
 #include "kernel_task.h"
+#include "kernel_timing.h"
 #include "mpu.h"
 #include "port.h"
 #include "port_exception.h"
 #include "port_syscall.h"
+#include "scheduler.h"
 #include "stm32h5xx.h"
 #include "syscall.h"
 #include "task.h"
 #include "task_stack_allocator.h"
+#include "timer.h"
 
 #define MAX_TASKS            16U
 #define IDLE_TASK_STACK_SIZE 256U
 #define IDLE_TASK_PRIORITY   0U
 
 __attribute__((section(".kernel_bss"))) static TaskList_t taskReadyList;
-__attribute__((section(".kernel_bss"))) static TaskList_t taskWakeupList;
+/** Timed tasks whose deadlines fall within the current TIM2 counter cycle. */
+__attribute__((section(".kernel_bss"))) static TaskList_t active_wakeup_list;
+/** Timed tasks whose deadlines fall after the current TIM2 counter cycle. */
+__attribute__((section(".kernel_bss"))) static TaskList_t future_wakeup_list;
 __attribute__((section(".kernel_bss"))) static TCB_t* idle_task;
 __attribute__((section(".kernel_bss"))) static TCB_t TCBT[MAX_TASKS];
 
 /* Internal ready-list operations are public only to support structural tests. */
 TinyStatus_t _insert_ready_task(TCB_t* task);
-TinyStatus_t _insert_task_by_wakeup(TCB_t* task);
+
 TinyStatus_t _remove_ready_task(TCB_t* task);
-TinyStatus_t _remove_task_from_wakeup_list(TCB_t* task);
+
 static TinyStatus_t _task_stack_init(TCB_t* task);
 static void task_exit(void);
 
-static inline TCB_t* task_lookup(TaskHandle_t task_handle) {
+TCB_t* task_lookup(TaskHandle_t task_handle) {
     if (task_handle >= MAX_TASKS)
         return NULL;
     return &TCBT[task_handle];
@@ -43,24 +49,50 @@ static inline TCB_t* task_lookup(TaskHandle_t task_handle) {
 
 static int compare_priority(const TCB_t* a, const TCB_t* b) { return a->priority > b->priority; }
 
-static int deadline_before(uint32_t a, uint32_t b) { return (int32_t)(a - b) < 0; }
-
-static int compare_wakeup(const TCB_t* a, const TCB_t* b) { return deadline_before(a->wakeup_tick, b->wakeup_tick); }
+static int compare_wakeup(const TCB_t* a, const TCB_t* b) {
+    return deadline_before(&a->wakeup_deadline, &b->wakeup_deadline);
+}
 
 static int task_has_timed_block_reason(const TCB_t* task) {
     return task->block_reason == BLOCK_DELAY || task->block_reason == BLOCK_EVENT_TIMEOUT;
 }
 
-static int task_is_in_wakeup_list(const TCB_t* task) {
-    return taskWakeupList.head == task || task->wakeup_prev != NULL || task->wakeup_next != NULL;
+static int task_is_in_active_wakeup_list(const TCB_t* task) {
+    return active_wakeup_list.head == task || task->wakeup_prev != NULL || task->wakeup_next != NULL;
+}
+
+static int task_is_in_future_wakeup_list(const TCB_t* task) {
+    return future_wakeup_list.head == task || task->future_wakeup_prev != NULL || task->future_wakeup_next != NULL;
 }
 
 static TCB_t** task_next_link(const TaskList_t* taskList, TCB_t* task) {
-    return taskList->links == TASK_READY_LINKS ? &task->next : &task->wakeup_next;
+    switch (taskList->links) {
+        case TASK_READY_LINKS: {
+            return &task->next;
+        }
+        case TASK_WAKEUP_LINKS: {
+            return &task->wakeup_next;
+        }
+        case TASK_FUTURE_WAKEUP_LINKS: {
+            return &task->future_wakeup_next;
+        }
+        default: return NULL;
+    }
 }
 
 static TCB_t** task_prev_link(const TaskList_t* taskList, TCB_t* task) {
-    return taskList->links == TASK_READY_LINKS ? &task->prev : &task->wakeup_prev;
+    switch (taskList->links) {
+        case TASK_READY_LINKS: {
+            return &task->prev;
+        }
+        case TASK_WAKEUP_LINKS: {
+            return &task->wakeup_prev;
+        }
+        case TASK_FUTURE_WAKEUP_LINKS: {
+            return &task->future_wakeup_prev;
+        }
+        default: return NULL;
+    }
 }
 
 __attribute__((noreturn)) static void idle_func(void* arg) {
@@ -90,7 +122,8 @@ TinyStatus_t task_system_init(void) {
         TCBT[i] = (TCB_t){0};
     }
     stack_allocator_init();
-    if (task_ready_list_init() != TINY_OK || task_wakeup_list_init() != TINY_OK)
+    if (task_ready_list_init() != TINY_OK || active_wakeup_list_init() != TINY_OK
+        || future_wakeup_list_init() != TINY_OK)
         return TINY_FAIL;
     TaskHandle_t handle = 0;
     if (task_create(&handle, (TaskFunc_t)idle_func, NULL, IDLE_TASK_PRIORITY, IDLE_TASK_STACK_SIZE) != TINY_OK)
@@ -122,6 +155,7 @@ TinyStatus_t task_create(TaskHandle_t* task_handle, TaskFunc_t main_func, void* 
             }
             TCB_t* new_task = &TCBT[i];
             new_task->status = READY;
+            new_task->status_before_suspend = READY;
             new_task->block_reason = BLOCK_NONE;
             new_task->main_func = main_func;
             new_task->arg = arg;
@@ -133,8 +167,8 @@ TinyStatus_t task_create(TaskHandle_t* task_handle, TaskFunc_t main_func, void* 
             new_task->prev = NULL;
             new_task->wakeup_next = NULL;
             new_task->wakeup_prev = NULL;
-            new_task->wakeup_tick = 0;
-            /* Initialize the task's stack*/
+            new_task->wakeup_deadline = (TimerDeadline_t){0};
+            /* Build the task's initial software and exception frames. */
             _task_stack_init(new_task);
             if (task_handle != NULL) {
                 *task_handle = i;
@@ -162,15 +196,28 @@ TinyStatus_t task_ready_list_init(void) {
 }
 
 /**
- * @brief Clear and configure the scheduler's wakeup list.
+ * @brief Clear and configure the current-cycle wakeup list.
  *
  * @return TINY_OK after the list has been reset.
  */
-TinyStatus_t task_wakeup_list_init(void) {
-    taskWakeupList.head = NULL;
-    taskWakeupList.lenght = 0;
-    taskWakeupList.compare = compare_wakeup;
-    taskWakeupList.links = TASK_WAKEUP_LINKS;
+TinyStatus_t active_wakeup_list_init(void) {
+    active_wakeup_list.head = NULL;
+    active_wakeup_list.lenght = 0;
+    active_wakeup_list.compare = compare_wakeup;
+    active_wakeup_list.links = TASK_WAKEUP_LINKS;
+    return TINY_OK;
+}
+
+/**
+ * @brief Clear and configure the future-cycle wakeup list.
+ *
+ * @return TINY_OK after the list has been reset.
+ */
+TinyStatus_t future_wakeup_list_init(void) {
+    future_wakeup_list.head = NULL;
+    future_wakeup_list.lenght = 0;
+    future_wakeup_list.compare = compare_wakeup;
+    future_wakeup_list.links = TASK_FUTURE_WAKEUP_LINKS;
     return TINY_OK;
 }
 
@@ -182,7 +229,8 @@ TinyStatus_t task_wakeup_list_init(void) {
  */
 const TaskList_t* task_ready_list_get(void) { return &taskReadyList; }
 
-const TaskList_t* task_wakeup_list_get(void) { return &taskWakeupList; }
+/** @return Pointer to the current-cycle wakeup list used by structural tests. */
+const TaskList_t* task_wakeup_list_get(void) { return &active_wakeup_list; }
 #endif
 
 /**
@@ -240,11 +288,20 @@ TinyStatus_t _insert_ready_task(TCB_t* task) {
     return _insert_task(&taskReadyList, task);
 }
 
-TinyStatus_t _insert_task_by_wakeup(TCB_t* task) {
-    if (task == NULL || task->status != BLOCKED || !task_has_timed_block_reason(task) || task_is_in_wakeup_list(task)) {
+TinyStatus_t insert_task_by_wakeup(TCB_t* task) {
+    if (task == NULL || task->status != BLOCKED || !task_has_timed_block_reason(task)
+        || task_is_in_active_wakeup_list(task)) {
         return TINY_FAIL;
     }
-    return _insert_task(&taskWakeupList, task);
+    return _insert_task(&active_wakeup_list, task);
+}
+
+TinyStatus_t insert_task_in_future_list(TCB_t* task) {
+    if (task == NULL || task->status != BLOCKED || !task_has_timed_block_reason(task)
+        || task_is_in_future_wakeup_list(task)) {
+        return TINY_FAIL;
+    }
+    return _insert_task(&future_wakeup_list, task);
 }
 
 /**
@@ -292,11 +349,18 @@ TinyStatus_t _remove_ready_task(TCB_t* task) {
     return _remove_task(&taskReadyList, task);
 }
 
-TinyStatus_t _remove_task_from_wakeup_list(TCB_t* task) {
+TinyStatus_t remove_task_from_wakeup_list(TCB_t* task) {
     if (task == NULL || task->status != BLOCKED || !task_has_timed_block_reason(task)) {
         return TINY_FAIL;
     }
-    return _remove_task(&taskWakeupList, task);
+    return _remove_task(&active_wakeup_list, task);
+}
+
+TinyStatus_t remove_task_from_future_list(TCB_t* task) {
+    if (task == NULL || task->status != BLOCKED || !task_has_timed_block_reason(task)) {
+        return TINY_FAIL;
+    }
+    return _remove_task(&future_wakeup_list, task);
 }
 
 /**
@@ -306,11 +370,16 @@ TinyStatus_t _remove_task_from_wakeup_list(TCB_t* task) {
  */
 TCB_t* get_highest_priority_ready_task(void) { return taskReadyList.head; }
 
-/** Return the task whose wake-up deadline comes first. */
-TCB_t* get_earliest_wakeup_task(void) { return taskWakeupList.head; }
+/** @return Task with the earliest deadline in the current timer cycle. */
+TCB_t* get_earliest_wakeup_task(void) { return active_wakeup_list.head; }
 
+/** @return Task with the earliest absolute deadline in a future timer cycle. */
+TCB_t* get_earliest_future_task(void) { return future_wakeup_list.head; }
+
+/** @return Task following @p task in the current-cycle wakeup list. */
 TCB_t* get_next_wakeup_task(TCB_t* task) { return task->wakeup_next; }
 
+/** @return Number of tasks waiting in the priority-ordered ready list. */
 size_t task_ready_count(void) { return taskReadyList.lenght; }
 
 /**
@@ -353,7 +422,7 @@ TinyStatus_t set_task_ready(TCB_t* task) {
 
     /* Removal must happen while the task still satisfies the BLOCKED invariant. */
     if (previous_status == BLOCKED && task_has_timed_block_reason(task)) {
-        if (_remove_task_from_wakeup_list(task) != TINY_OK) {
+        if (remove_task_from_wakeup_list(task) != TINY_OK) {
             return TINY_FAIL;
         }
         removed_from_wakeup_list = 1;
@@ -363,7 +432,7 @@ TinyStatus_t set_task_ready(TCB_t* task) {
     if (_insert_ready_task(task) != TINY_OK) {
         task->status = previous_status;
         if (removed_from_wakeup_list) {
-            (void)_insert_task_by_wakeup(task);
+            (void)insert_task_by_wakeup(task);
         }
         return TINY_FAIL;
     }
@@ -420,21 +489,85 @@ TinyStatus_t set_task_suspended(TCB_t* task) {
     if (task == NULL) {
         return TINY_FAIL;
     }
+    if (task->status == TERMINATED || task->status == UNUSED) {
+        return TINY_FAIL;
+    }
     if (task->status == SUSPENDED) {
         return TINY_OK;
     }
 
     /* A blocked task may also be waiting for a timeout. Remove that timeout
      * before changing its status because wakeup-list removal requires BLOCKED. */
-    if (task->status == BLOCKED && task_has_timed_block_reason(task)
-        && _remove_task_from_wakeup_list(task) != TINY_OK) {
+    if (task->status == BLOCKED && task_has_timed_block_reason(task)) {
+        if (task_is_in_active_wakeup_list(task)) {
+            if (remove_task_from_wakeup_list(task) != TINY_OK) {
+                return TINY_FAIL;
+            }
+        } else if (task_is_in_future_wakeup_list(task)) {
+            if (remove_task_from_future_list(task) != TINY_OK) {
+                return TINY_FAIL;
+            }
+        }
+    }
+
+    task->status_before_suspend = task->status;
+    TinyStatus_t result = set_task_not_ready(task, SUSPENDED);
+    return result;
+}
+
+/**
+ * @brief Restore a suspended task to its pre-suspension scheduling state.
+ *
+ * A timed blocked task is made ready if its deadline expired while suspended;
+ * otherwise it is returned to the appropriate active or future wakeup list.
+ *
+ * @param task Suspended task to resume.
+ * @return TINY_OK on success, or TINY_FAIL for an invalid state or list operation.
+ */
+TinyStatus_t resume_task(TCB_t* task) {
+    if (task == NULL || task->status != SUSPENDED) {
         return TINY_FAIL;
     }
-    TinyStatus_t result = set_task_not_ready(task, SUSPENDED);
-    if (result == TINY_OK) {
-        task->block_reason = BLOCK_NONE;
+
+    switch (task->status_before_suspend) {
+        case BLOCKED: {
+            if (task_has_timed_block_reason(task)) {
+                TimerDeadline_t now = {.cycle_index = cycle_counter, .offset = timer_now()};
+                if (timer_deadline_reached(&task->wakeup_deadline, &now)) {
+                    return set_task_ready(task);
+                }
+
+                task->status = BLOCKED;
+                if (task->wakeup_deadline.cycle_index <= cycle_counter) {
+                    if (insert_task_by_wakeup(task) != TINY_OK) {
+                        task->status = SUSPENDED;
+                        return TINY_FAIL;
+                    }
+                } else {
+                    if (insert_task_in_future_list(task) != TINY_OK) {
+                        task->status = SUSPENDED;
+                        return TINY_FAIL;
+                    }
+                }
+
+                TCB_t* earliest_task = get_earliest_wakeup_task();
+                if (earliest_task != NULL) {
+                    timer_set_deadline(earliest_task->wakeup_deadline.offset);
+                }
+            } else {
+                task->status = BLOCKED;
+            }
+
+            return TINY_OK;
+        }
+
+        case READY:
+        case RUNNING: return set_task_ready(task);
+
+        default: {
+            return TINY_FAIL;
+        }
     }
-    return result;
 }
 
 /**
@@ -445,7 +578,12 @@ TinyStatus_t set_task_suspended(TCB_t* task) {
  */
 TinyStatus_t set_task_terminated(TCB_t* task) { return set_task_not_ready(task, TERMINATED); }
 
-/** Update priority and restore ready-list ordering when necessary. */
+/**
+ * @brief Update a task priority and restore ready-list ordering when necessary.
+ * @param task Task whose priority should change.
+ * @param priority New scheduler priority.
+ * @return TINY_OK on success, or TINY_FAIL for invalid input or list failure.
+ */
 TinyStatus_t set_task_priority(TCB_t* task, uint32_t priority) {
     if (task == NULL) {
         return TINY_FAIL;
@@ -475,53 +613,68 @@ TinyStatus_t set_task_priority(TCB_t* task, uint32_t priority) {
     return TINY_OK;
 }
 
-/** Store the absolute tick at which a blocked task should awaken. */
-TinyStatus_t set_task_wakeup_tick(TCB_t* task, uint32_t abs_tick) {
+/**
+ * @brief Store the absolute timer deadline at which a task should awaken.
+ *
+ * A queued task is removed and reinserted to preserve deadline ordering.
+ *
+ * @param task Task whose deadline should change.
+ * @param cycle_index Absolute 32-bit timer-cycle index.
+ * @param offset Counter offset within @p cycle_index.
+ * @return TINY_OK on success, or TINY_FAIL for invalid input or list failure.
+ */
+TinyStatus_t set_task_wakeup_deadline(TCB_t* task, uint64_t cycle_index, uint32_t offset) {
     if (task == NULL) {
         return TINY_FAIL;
     }
-    if (abs_tick == task->wakeup_tick) {
+
+    TimerDeadline_t new_deadline = {.cycle_index = cycle_index, .offset = offset};
+    TimerDeadline_t old_deadline = task->wakeup_deadline;
+
+    if (deadline_before(&new_deadline, &old_deadline) == 0 && deadline_before(&old_deadline, &new_deadline) == 0) {
         return TINY_OK;
     }
 
-    if (task->status != BLOCKED || !task_has_timed_block_reason(task) || !task_is_in_wakeup_list(task)) {
-        task->wakeup_tick = abs_tick;
+    int in_active_list = task_is_in_active_wakeup_list(task);
+    int in_future_list = task_is_in_future_wakeup_list(task);
+
+    if (!in_active_list && !in_future_list) {
+        task->wakeup_deadline = new_deadline;
         return TINY_OK;
     }
 
-    int ordered_after_previous =
-        task->wakeup_prev == NULL || !deadline_before(abs_tick, task->wakeup_prev->wakeup_tick);
-    int ordered_before_next = task->wakeup_next == NULL || !deadline_before(task->wakeup_next->wakeup_tick, abs_tick);
-
-    if (ordered_after_previous && ordered_before_next) {
-        task->wakeup_tick = abs_tick;
-        return TINY_OK;
-    }
-
-    if (_remove_task_from_wakeup_list(task) != TINY_OK) {
+    if (in_active_list && in_future_list) {
         return TINY_FAIL;
     }
-    task->wakeup_tick = abs_tick;
-    if (_insert_task_by_wakeup(task) != TINY_OK) {
+
+    TinyStatus_t remove_status =
+        in_active_list ? remove_task_from_wakeup_list(task) : remove_task_from_future_list(task);
+    if (remove_status != TINY_OK) {
         return TINY_FAIL;
     }
+
+    task->wakeup_deadline = new_deadline;
+    TinyStatus_t insert_status = in_active_list ? insert_task_by_wakeup(task) : insert_task_in_future_list(task);
+    if (insert_status != TINY_OK) {
+        task->wakeup_deadline = old_deadline;
+        (void)(in_active_list ? insert_task_by_wakeup(task) : insert_task_in_future_list(task));
+        return TINY_FAIL;
+    }
+
     return TINY_OK;
 }
 
+/**
+ * @brief Map the selected task stack into the dynamic MPU region.
+ * @param task Task whose stack should become accessible.
+ * @return Status returned by the Cortex-M MPU port.
+ */
 TinyStatus_t task_stack_mpu_config(TCB_t* task) {
     uint32_t base_address = task->stack_region.base;
     uint32_t limit_address = base_address + (uint32_t)task->stack_region.size - 1U;
 
-    return port_MPU_config(base_address, limit_address, task->stack_region.access_permission, 0,
+    return port_MPU_config(base_address, limit_address, task->stack_region.access_permission,MEMORY_TYPE_NORMAL, 0,
                            MEMORY_REGION_NUMEBER_1);
-}
-
-TinyStatus_t tiny_task_create(TaskHandle_t* task_handle, TaskFunc_t main_func, void* arg, uint32_t priority,
-                              size_t stack_size) {
-    TinyStatus_t status = TINY_FAIL;
-    TaskCreateArgs_t args = {task_handle, main_func, arg, priority, stack_size};
-    PORT_SYSCALL_RET_1(status, SVC_TASK_CREATE, &args);
-    return status;
 }
 
 /** @brief Terminate a task that returns from its entry function. */

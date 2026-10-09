@@ -10,6 +10,7 @@
 #include <stdint.h>
 #include "config.h"
 
+/** @brief Numeric identifier assigned to a task control block. */
 typedef uint32_t TaskHandle_t;
 
 /** @brief Task entry-point signature. */
@@ -27,5 +28,19 @@ typedef void (*TaskFunc_t)(void* arg);
  */
 TinyStatus_t tiny_task_create(TaskHandle_t* task_handle, TaskFunc_t main_func, void* arg, uint32_t priority,
                               size_t stack_size);
+
+/**
+ * @brief Suspend a task through the system-call interface.
+ * @param task_handle Pointer to the handle of the task to suspend.
+ * @return TINY_OK on success, or TINY_FAIL for a NULL or invalid handle.
+ */
+TinyStatus_t tiny_task_suspend(TaskHandle_t* task_handle);
+
+/**
+ * @brief Resume a suspended task through the system-call interface.
+ * @param task_handle Pointer to the handle of the task to resume.
+ * @return TINY_OK on success, or TINY_FAIL for a NULL, invalid, or non-suspended task.
+ */
+TinyStatus_t tiny_task_resume(TaskHandle_t* task_handle);
 
 #endif /* TASK_H */

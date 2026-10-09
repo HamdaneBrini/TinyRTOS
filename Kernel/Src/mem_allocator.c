@@ -6,6 +6,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "config.h"
 #include "mem_allocator.h"
 
 /**
@@ -13,9 +14,12 @@
  *
  * @param base_address Address of the first byte in the memory region.
  * @param mem_size Total size of the memory region in bytes.
+ * @param mem_aligment Required payload alignment in bytes.
  * @param allocator_CB Allocator state to initialize.
+ * @return TINY_OK after initialization.
  */
-void memory_allocator_init(uint32_t base_address, size_t mem_size, size_t mem_aligment, Allocator_CB_t* allocator_CB) {
+TinyStatus_t memory_allocator_init(uint32_t base_address, size_t mem_size, size_t mem_aligment,
+                                   Allocator_CB_t* allocator_CB) {
     allocator_CB->head = (MemBlock*)base_address;
     allocator_CB->head->is_empty = 1;
     allocator_CB->mem_aligment = mem_aligment;
@@ -25,12 +29,14 @@ void memory_allocator_init(uint32_t base_address, size_t mem_size, size_t mem_al
     allocator_CB->head->prev = NULL;
     allocator_CB->mem_size = mem_size;
     allocator_CB->initialized = 1;
+    return TINY_OK;
 }
 
 /**
  * @brief Get the first byte of a block's payload.
  *
  * @param block Block whose payload address is required.
+ * @param allocator_CB Allocator defining the aligned header size.
  * @return Pointer immediately after the aligned block header.
  */
 static inline void* _get_data_ptr(MemBlock* block, Allocator_CB_t* allocator_CB) {
@@ -44,6 +50,7 @@ static inline void* _get_data_ptr(MemBlock* block, Allocator_CB_t* allocator_CB)
  * when the current block is split.
  *
  * @param block Block whose end address is required.
+ * @param allocator_CB Allocator defining the aligned header size.
  * @return Pointer one byte past the block's payload.
  */
 static inline void* _get_end_block(MemBlock* block, Allocator_CB_t* allocator_CB) {
@@ -59,6 +66,7 @@ static inline void* _get_end_block(MemBlock* block, Allocator_CB_t* allocator_CB
  *
  * @param block Block to split.
  * @param size Payload size of the first block.
+ * @param allocator_CB Allocator defining block metadata layout.
  * @return 1 on success, otherwise 0.
  */
 static inline int _split_block(MemBlock* block, size_t size, Allocator_CB_t* allocator_CB) {
@@ -142,6 +150,7 @@ void* memory_allocator_alloc(size_t size, Allocator_CB_t* allocator_CB) {
  * header bytes become part of the merged payload area.
  *
  * @param block Block from which coalescing starts; NULL is accepted.
+ * @param allocator_CB Allocator defining block metadata layout.
  */
 static void _mem_coalescing(MemBlock* block, Allocator_CB_t* allocator_CB) {
     if (block == NULL)
@@ -180,13 +189,15 @@ static void _mem_coalescing(MemBlock* block, Allocator_CB_t* allocator_CB) {
  *
  * @param ptr Pointer to the payload being released.
  * @param allocator_CB Allocator that owns the allocation.
+ * @return TINY_OK on success, or TINY_FAIL when the allocator is not initialized or @p ptr is NULL.
  */
-void memory_allocator_free(void* ptr, Allocator_CB_t* allocator_CB) {
+TinyStatus_t memory_allocator_free(void* ptr, Allocator_CB_t* allocator_CB) {
     if (!allocator_CB->initialized)
-        return;
+        return TINY_FAIL;
     if (ptr == NULL)
-        return;
+        return TINY_FAIL;
     MemBlock* current_block = (MemBlock*)((size_t)ptr - allocator_CB->block_header_size);
     current_block->is_empty = 1;
     _mem_coalescing(current_block, allocator_CB);
+    return TINY_OK;
 }

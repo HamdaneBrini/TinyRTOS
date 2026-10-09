@@ -23,9 +23,11 @@
 #include "cmsis_gcc.h"
 #include "main.h"
 #include "scheduler.h"
+#include "stm32h5xx_hal_uart.h"
 #include "stm32h5xx_it.h"
 
 extern TIM_HandleTypeDef htim2;
+extern UART_HandleTypeDef huart2;
 
 /* Private includes ----------------------------------------------------------*/
 
@@ -62,11 +64,6 @@ void HardFault_Handler(void) {
   */
 void MemManage_Handler(void) {
     /* USER CODE BEGIN MemoryManagement_IRQn 0 */
-    uint32_t fault_pc = ((uint32_t*)__get_PSP())[6];
-
-    MPU->RNR = 2; /* Flash region. */
-    uint32_t flash_rbar = MPU->RBAR;
-    uint32_t flash_rlar = MPU->RLAR;
     /* USER CODE END MemoryManagement_IRQn 0 */
     while (1) {
         /* USER CODE BEGIN W1_MemoryManagement_IRQn 0 */
@@ -98,8 +95,6 @@ void UsageFault_Handler(void) {
     }
 }
 
-
-
 /**
   * @brief This function handles Debug monitor.
   */
@@ -111,8 +106,6 @@ void DebugMon_Handler(void) {
 
     /* USER CODE END DebugMonitor_IRQn 1 */
 }
-
-
 
 /**
   * @brief This function handles System tick timer.
@@ -135,3 +128,5 @@ void SysTick_Handler(void) {
 /******************************************************************************/
 
 void TIM2_IRQHandler(void) { HAL_TIM_IRQHandler(&htim2); }
+
+void USART2_IRQHandler(void) { HAL_UART_IRQHandler(&huart2); }
